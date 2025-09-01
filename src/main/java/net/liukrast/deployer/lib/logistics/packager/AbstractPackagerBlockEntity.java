@@ -1,0 +1,397 @@
+package net.liukrast.deployer.lib.logistics.packager;
+
+import com.simibubi.create.AllBlocks;
+import com.simibubi.create.Create;
+import com.simibubi.create.content.logistics.BigItemStack;
+import com.simibubi.create.content.logistics.box.PackageItem;
+import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBehaviour;
+import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlock;
+import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlockEntity;
+import com.simibubi.create.content.logistics.packager.*;
+import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlock;
+import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlockEntity;
+import com.simibubi.create.content.logistics.packagerLink.RequestPromiseQueue;
+import com.simibubi.create.foundation.advancement.AllAdvancements;
+import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import com.simibubi.create.foundation.blockEntity.behaviour.inventory.CapManipulationBehaviourBase;
+import net.createmod.catnip.data.Iterate;
+import net.createmod.catnip.math.BlockFace;
+import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
+import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
+import net.liukrast.deployer.lib.mixin.PackagerBlockEntityAccessor;
+import net.liukrast.deployer.lib.mixinExtensions.LLBExtension;
+import net.liukrast.deployer.lib.mixinExtensions.RPQExtension;
+import net.liukrast.deployer.lib.mixinExtensions.VITBExtension;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+
+public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEntity {
+    public CapManipulationBehaviourBase<H, ? extends CapManipulationBehaviourBase<?,?>> targetInventory;
+    private AbstractInventorySummary<K,V> availableItems;
+
+    public AbstractPackagerBlockEntity(BlockEntityType<?> typeIn, BlockPos pos, BlockState state) {
+        super(typeIn, pos, state);
+    }
+
+    public boolean supportsBlockEntity(BlockEntity target) {
+        return ((PackagerBlockEntityAccessor)this).invokeSupportsBlockEntity(target);
+    }
+
+    protected abstract CapManipulationBehaviourBase<H, ? extends CapManipulationBehaviourBase<?,?>> createTargetInventory();
+    public abstract StockInventoryType<K,V,H> getStockType();
+
+    @Override
+    public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
+        super.addBehaviours(behaviours);
+        behaviours.add(targetInventory = createTargetInventory());
+    }
+
+    @Override
+    public InventorySummary getAvailableItems() {
+        throw new IllegalCallerException("This function should not be invoked on abstract packagers");
+    }
+
+    @Override
+    public void attemptToSend(List<PackagingRequest> queuedRequests) {
+        throw new IllegalCallerException("This function should not be invoked on abstract packagers");
+    }
+
+    @Override
+    public void triggerStockCheck() {
+        getAvailableStacks();
+    }
+
+    @SuppressWarnings("UnusedReturnValue")
+    public AbstractInventorySummary<K,V> getAvailableStacks() {
+        if (availableItems != null && ((VITBExtension)((PackagerBlockEntityAccessor)this).getInvVersionTracker()).deployer$stillWaiting(targetInventory.getInventory()))
+            return availableItems;
+        var type = getStockType();
+        var handler = type.storageHandler();
+
+        AbstractInventorySummary<K,V> availableItems = type.networkHandler().create();
+
+        H targetInv = targetInventory.getInventory();
+        if (targetInv == null || targetInv instanceof PackagerItemHandler) {
+            this.availableItems = availableItems;
+            return availableItems;
+        }
+
+        for (int slot = 0; slot < handler.getSlots(targetInv); slot++) {
+            availableItems.add(handler.getStackInSlot(targetInv, slot));
+        }
+        for(int slot = 0; slot < handler.getSlots(targetInv); slot++) {
+            availableItems.add(handler.getStackInSlot(targetInv, slot));
+        }
+
+        ((VITBExtension)((PackagerBlockEntityAccessor)this).getInvVersionTracker()).deployer$awaitNewVersion(targetInventory.getInventory());
+        submitNewArrivals(type, this.availableItems, availableItems);
+        this.availableItems = availableItems;
+        return availableItems;
+    }
+
+    private void submitNewArrivals(StockInventoryType<K,V,H> type, AbstractInventorySummary<K,V> before, AbstractInventorySummary<K,V> after) {
+        if (before == null || after.isEmpty())
+            return;
+        assert level != null;
+        var handler = type.valueHandler();
+
+        Set<RequestPromiseQueue> promiseQueues = new HashSet<>();
+
+        for (Direction d : Iterate.directions) {
+
+            if (!level.isLoaded(worldPosition.relative(d)))
+                continue;
+
+            BlockState adjacentState = level.getBlockState(worldPosition.relative(d));
+            if (AllBlocks.FACTORY_GAUGE.has(adjacentState)) {
+                if (FactoryPanelBlock.connectedDirection(adjacentState) != d)
+                    continue;
+                if (!(level.getBlockEntity(worldPosition.relative(d)) instanceof FactoryPanelBlockEntity fpbe))
+                    continue;
+                if (!fpbe.restocker)
+                    continue;
+                for (FactoryPanelBehaviour behaviour : fpbe.panels.values()) {
+                    if (!behaviour.isActive())
+                        continue;
+                    promiseQueues.add(behaviour.restockerPromises);
+                }
+            }
+
+            if (AllBlocks.STOCK_LINK.has(adjacentState)) {
+                if (PackagerLinkBlock.getConnectedDirection(adjacentState) != d)
+                    continue;
+                if (!(level.getBlockEntity(worldPosition.relative(d)) instanceof PackagerLinkBlockEntity plbe))
+                    continue;
+                UUID freqId = plbe.behaviour.freqId;
+                if (!Create.LOGISTICS.hasQueuedPromises(freqId))
+                    continue;
+                promiseQueues.add(Create.LOGISTICS.getQueuedPromises(freqId));
+            }
+        }
+
+        if (promiseQueues.isEmpty())
+            return;
+
+        for (V entry : after.getStacks())
+            before.add(entry, -handler.getCount(entry));
+        for (RequestPromiseQueue queue : promiseQueues)
+            for (V entry : before.getStacks())
+                if (handler.getCount(entry) < 0)
+                    ((RPQExtension)queue).deployer$genericEnteredSystem(type, entry, -handler.getCount(entry));
+    }
+
+    public void attemptToSendSpecial(@Nullable List<GenericPackagingRequest<V>> queuedRequests) {
+        if (queuedRequests == null && (!heldBox.isEmpty() || animationTicks != 0 || buttonCooldown > 0))
+            return;
+
+        H targetInv = targetInventory.getInventory();
+        if (targetInv == null || targetInv instanceof PackagerItemHandler)
+            return;
+        var type = getStockType();
+
+        boolean anyItemPresent = false;
+        H extractedItems = type.storageHandler().create(type.storageHandler().getMaxPackageSlots());
+        ItemStack extractedPackageItem = ItemStack.EMPTY;
+        GenericPackagingRequest<V> nextRequest = null;
+        String fixedAddress = null;
+        int fixedOrderId = 0;
+
+        // Data written to packages for defrags
+        int linkIndexInOrder = 0;
+        boolean finalLinkInOrder = false;
+        int packageIndexAtLink = 0;
+        boolean finalPackageAtLink = false;
+        GenericOrderContained<V> orderContext = null;
+        boolean requestQueue = queuedRequests != null;
+
+        if (requestQueue && !queuedRequests.isEmpty()) {
+            nextRequest = queuedRequests.getFirst();
+            fixedAddress = nextRequest.address();
+            fixedOrderId = nextRequest.orderId();
+            linkIndexInOrder = nextRequest.linkIndex();
+            finalLinkInOrder = nextRequest.finalLink()
+                    .booleanValue();
+            packageIndexAtLink = nextRequest.packageCounter()
+                    .getAndIncrement();
+            orderContext = nextRequest.context();
+        }
+
+        //From here it's black magic
+        var handler = type.storageHandler();
+        var valueHandler = type.valueHandler();
+        Outer:
+        for (int i = 0; i < handler.getMaxPackageSlots(); i++) {
+            boolean continuePacking = true;
+
+            while (continuePacking) {
+                continuePacking = false;
+                for (int slot = 0; slot < handler.getSlots(targetInv); slot++) {
+                    //noinspection DataFlowIssue
+                    int initialCount = requestQueue ? Math.min(handler.maxCountPerSlot(), nextRequest.getCount()) : handler.maxCountPerSlot();
+                    V extracted = handler.extract(targetInv, valueHandler.create(valueHandler.fromValue(handler.getStackInSlot(targetInv, slot)), initialCount), true);
+                    if (valueHandler.isEmpty(extracted))
+                        continue;
+                    if(requestQueue && valueHandler.equals(extracted, nextRequest.item()))
+                        continue;
+
+                    boolean bulky = !handler.isBulky(valueHandler.fromValue(extracted));
+                    if (bulky && anyItemPresent)
+                        continue;
+
+                    anyItemPresent = true;
+                    int leftovers = handler.fill(extractedItems, valueHandler.create(valueHandler.fromValue(extracted), valueHandler.getCount(extracted)), false);
+                    int transferred = valueHandler.getCount(extracted) -leftovers;
+                    handler.extract(targetInv, valueHandler.create(valueHandler.fromValue(handler.getStackInSlot(targetInv, slot)), transferred), false);
+
+                    if (!requestQueue) {
+                        if (bulky)
+                            break Outer;
+                        continue;
+                    }
+
+                    nextRequest.subtract(transferred);
+
+                    if (!nextRequest.isEmpty()) {
+                        if (bulky)
+                            break Outer;
+                        continue;
+                    }
+
+                    finalPackageAtLink = true;
+                    queuedRequests.removeFirst();
+                    if (queuedRequests.isEmpty())
+                        break Outer;
+                    int previousCount = nextRequest.packageCounter()
+                            .intValue();
+                    nextRequest = queuedRequests.getFirst();
+                    assert fixedAddress != null;
+                    if (!fixedAddress.equals(nextRequest.address()))
+                        break Outer;
+                    if (fixedOrderId != nextRequest.orderId())
+                        break Outer;
+
+                    nextRequest.packageCounter()
+                            .setValue(previousCount);
+                    finalPackageAtLink = false;
+                    continuePacking = true;
+                    if (nextRequest.context() != null)
+                        orderContext = nextRequest.context();
+
+                    if (bulky)
+                        break Outer;
+                    break;
+                }
+            }
+        }
+
+        if (!anyItemPresent) {
+            if (nextRequest != null)
+                queuedRequests.removeFirst();
+            return;
+        }
+
+        ItemStack createdBox =
+                extractedPackageItem.isEmpty() ? type.packageHandler().containing(extractedItems) : extractedPackageItem.copy();
+        PackageItem.clearAddress(createdBox);
+
+        if (fixedAddress != null)
+            PackageItem.addAddress(createdBox, fixedAddress);
+        if (requestQueue)
+            GenericPackageItem.setOrder(type, createdBox, fixedOrderId, linkIndexInOrder, finalLinkInOrder, packageIndexAtLink,
+                    finalPackageAtLink, orderContext);
+        if (!requestQueue && !signBasedAddress.isBlank())
+            PackageItem.addAddress(createdBox, signBasedAddress);
+
+        BlockPos linkPos = ((PackagerBlockEntityAccessor)this).invokeGetLinkPos();
+        assert level != null;
+        if (extractedPackageItem.isEmpty() && linkPos != null
+                && level.getBlockEntity(linkPos) instanceof PackagerLinkBlockEntity pLBE)
+            ((LLBExtension)pLBE.behaviour).deployer$deductFromAccurateSummary(type, extractedItems);
+
+        if (!heldBox.isEmpty() || animationTicks != 0) {
+            queuedExitingPackages.add(new BigItemStack(createdBox, 1));
+            return;
+        }
+
+        heldBox = createdBox;
+        animationInward = false;
+        animationTicks = CYCLE;
+
+        ((PackagerBlockEntityAccessor)this).getAdvancement().awardPlayer(AllAdvancements.PACKAGER);
+        triggerStockCheck();
+        notifyUpdate();
+    }
+
+    @Override
+    public boolean isTargetingSameInventory(@Nullable IdentifiedInventory inventory) {
+        throw new IllegalCallerException("Should not be invoked in FluidPackagerBlockEntity");
+    }
+
+    public boolean isTargetingSameContainer(@Nullable IdentifiedContainer<H> inventory) {
+        if (inventory == null)
+            return false;
+
+        H targetHandler = this.targetInventory.getInventory();
+        if (targetHandler == null)
+            return false;
+
+        if (inventory.identifier() != null) {
+            BlockFace face = this.targetInventory.getTarget().getOpposite();
+            return inventory.identifier().contains(face);
+        } else {
+            return isSameInventoryFallback(targetHandler, inventory.handler());
+        }
+    }
+
+    private boolean isSameInventoryFallback(H first, H second) {
+        if (first == second)
+            return true;
+
+        var sh = getStockType().storageHandler();
+        var vh = getStockType().valueHandler();
+
+        // If a contained ItemStack instance is the same, we can be pretty sure these
+        // inventories are the same (works for compound inventories)
+        for (int i = 0; i < sh.getSlots(second); i++) {
+            V stackInSlot = sh.getStackInSlot(second, i);
+            if (vh.isEmpty(stackInSlot))
+                continue;
+            for (int j = 0; j < sh.getSlots(first); j++)
+                if (stackInSlot == sh.getStackInSlot(first, j))
+                    return true;
+            break;
+        }
+
+        return false;
+    }
+
+    private List<V> getNonEmptyStacks(H handler) {
+        var storage = getStockType().storageHandler();
+        var value = getStockType().valueHandler();
+        List<V> stacks = new ArrayList<>();
+        for (int i = 0; i < storage.getSlots(handler); i++) {
+            V stack = storage.getStackInSlot(handler, i);
+            if (!value.isEmpty(stack)) {
+                stacks.add(stack);
+            }
+        }
+        return stacks;
+    }
+
+    private GenericOrderContained<V> getOrderContext(ItemStack box) {
+        var type = getStockType().packageHandler();
+        var packageOrderData = type.packageOrderData();
+        var packageOrderContext = type.packageOrderContext();
+        if (box.has(packageOrderData)) {
+            GenericPackageOrderData<V> data = box.get(packageOrderData);
+            assert data != null; //Might not be correct
+            return data.orderContext();
+        } else if (box.has(packageOrderContext)) {
+            return box.get(packageOrderContext);
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public boolean unwrapBox(ItemStack box, boolean simulate) {
+        if (animationTicks > 0)
+            return false;
+
+        Objects.requireNonNull(this.level); //Who wrote this
+
+        var type = getStockType();
+        var ph = type.packageHandler();
+
+        H contents = ph.getContents(box);
+        List<V> items = getNonEmptyStacks(contents);
+        if (items.isEmpty())
+            return true;
+
+        GenericOrderContained<V> orderContext = getOrderContext(box);
+        Direction facing = getBlockState().getOptionalValue(PackagerBlock.FACING).orElse(Direction.UP);
+        BlockPos target = worldPosition.relative(facing.getOpposite());
+        BlockState targetState = level.getBlockState(target);
+
+        GenericUnpackingHandler<V> handler = type.registry.get(targetState);
+        GenericUnpackingHandler<V> toUse = handler != null ? handler : type.defaultUnpackProcedure;
+        // note: handler may modify the passed items
+        boolean unpacked = toUse.unpack(level, target, targetState, facing, items, orderContext, simulate);
+
+        if (unpacked && !simulate) {
+            previouslyUnwrapped = box;
+            animationInward = true;
+            animationTicks = CYCLE;
+            notifyUpdate();
+        }
+
+        return unpacked;
+    }
+}
