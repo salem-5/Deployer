@@ -3,7 +3,11 @@ package net.liukrast.deployer.lib.logistics.packagerLink;
 import com.google.common.cache.Cache;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
+import com.simibubi.create.content.logistics.packager.PackagingRequest;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
+import com.simibubi.create.content.logistics.packagerLink.LogisticsManager;
+import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import com.simibubi.create.foundation.utility.TickBasedCache;
 import net.createmod.catnip.data.Pair;
 import net.liukrast.deployer.lib.DeployerConstants;
@@ -16,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.function.IntSupplier;
 
 public class LogisticsGenericManager {
 
@@ -60,14 +65,18 @@ public class LogisticsGenericManager {
     }
 
     public static <K,V,H> boolean broadcastPackageRequest(StockInventoryType<K,V,H> type, UUID freqId, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, @Nullable IdentifiedContainer<H> ignoredHandler, String address) {
+        return broadcastPackageRequest(type, freqId, requestType, order, ignoredHandler, address, () -> LogisticsManagerAccessor.getR().nextInt());
+    }
+
+    public static <K,V,H> boolean broadcastPackageRequest(StockInventoryType<K,V,H> type, UUID freqId, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, @Nullable IdentifiedContainer<H> ignoredHandler, String address, IntSupplier id) {
         if (order.isEmpty())
             return false;
 
-        Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> requests = findPackagersForRequest(type, freqId, order, ignoredHandler, address);
+        Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> requests = findPackagersForRequest(type, freqId, order, ignoredHandler, address, id);
 
         // Check if packagers have accumulated too many packages already
         for (AbstractPackagerBlockEntity<K,V,H> packager : requests.keySet())
-            if (packager.isTooBusyFor(requestType))
+            if (packager != null && packager.isTooBusyFor(requestType))
                 return false;
 
         // Actually perform package creation
@@ -75,7 +84,30 @@ public class LogisticsGenericManager {
         return true;
     }
 
-    public static <K,V,H> Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> findPackagersForRequest(StockInventoryType<K,V,H> type, UUID freqId, GenericOrderContained<V> order, @javax.annotation.Nullable IdentifiedContainer<H> ignoredHandler, String address) {
+    @SuppressWarnings("unchecked")
+    public static void broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, UUID freqId, LogisticallyLinkedBehaviour.RequestType type, Map<StockInventoryType<?,?,?>, GenericOrderContained<?>> rq, String address) {
+        if(defaultOrder.isEmpty() && rq.values().stream().allMatch(GenericOrderContained::isEmpty))
+            return;
+        Multimap<PackagerBlockEntity, PackagingRequest> requests = LogisticsManager.findPackagersForRequest(freqId, defaultOrder, null, address);
+
+
+        // Check if packagers have accumulated too many packages already
+        for (PackagerBlockEntity packager : requests.keySet())
+            if (packager.isTooBusyFor(type))
+                return;
+        var vals = requests.values();
+        int id = vals.isEmpty() ? LogisticsManagerAccessor.getR().nextInt() :
+                Optional.ofNullable(vals.iterator().next()).map(PackagingRequest::orderId)
+                        .orElseGet(() -> LogisticsManagerAccessor.getR().nextInt());
+        for(var entry : rq.entrySet()) {
+            broadcastPackageRequest((StockInventoryType<Object, Object, Object>)entry.getKey(), freqId, type,(GenericOrderContained<Object>) entry.getValue(), null, address, () -> id);
+        }
+
+        // Actually perform package creation
+        LogisticsManager.performPackageRequests(requests);
+    }
+
+    public static <K,V,H> Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> findPackagersForRequest(StockInventoryType<K,V,H> type, UUID freqId, GenericOrderContained<V> order, @javax.annotation.Nullable IdentifiedContainer<H> ignoredHandler, String address, IntSupplier id) {
         List<V> stacks = new ArrayList<>();
 
         for (V stack : order.stacks())
@@ -93,7 +125,7 @@ public class LogisticsGenericManager {
         GenericOrderContained<V> context = order;
 
         // Packages from future orders should not be merged in the packager queue
-        int orderId = LogisticsManagerAccessor.getR().nextInt();
+        int orderId = id.getAsInt();
 
         for (int i = 0; i < stacks.size(); i++) {
             V entry = stacks.get(i);

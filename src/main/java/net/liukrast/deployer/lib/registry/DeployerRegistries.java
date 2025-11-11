@@ -26,6 +26,7 @@ public class DeployerRegistries {
     public static final ResourceKey<Registry<StockInventoryType<?,?,?>>> STOCK_INVENTORY_KEY = ResourceKey.createRegistryKey(DeployerConstants.id("stock_inventory"));
     public static final Registry<StockInventoryType<?,?,?>> STOCK_INVENTORY = new RegistryBuilder<>(STOCK_INVENTORY_KEY)
             .sync(true)
+            .defaultKey(DeployerConstants.id("item"))
             .create();
 
     public static void init(NewRegistryEvent event) {

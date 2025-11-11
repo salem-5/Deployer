@@ -2,6 +2,7 @@ package net.liukrast.deployer.lib.mixin;
 
 import com.simibubi.create.content.logistics.filter.FilterItemStack;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
+import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import net.createmod.catnip.platform.CatnipServices;
 import net.liukrast.deployer.lib.logistics.packager.AbstractInventorySummary;
@@ -26,6 +27,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Mixin(StockTickerBlockEntity.class)
 public abstract class StockTickerBlockEntityMixin extends StockCheckingBlockEntityMixin implements STBEExtension {
@@ -51,6 +54,13 @@ public abstract class StockTickerBlockEntityMixin extends StockCheckingBlockEnti
     @Override
     public <K, V, H> AbstractInventorySummary<K, V> deployer$getLastClientsideStockSnapshotAsSummary(StockInventoryType<K, V, H> type) {
         return deployer$mappedInfo.getLastClientsideStockSnapshotAsSummary(type);
+    }
+
+    @Override
+    public void deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> requests, String address) {
+        super.deployer$broadcastAllPackageRequest(defaultOrder, requestType, requests, address);
+        previouslyUsedAddress = address;
+        notifyUpdate();
     }
 
     @Override
@@ -125,5 +135,10 @@ public abstract class StockTickerBlockEntityMixin extends StockCheckingBlockEnti
         List<V> unsorted = new ArrayList<>(deployer$mappedInfo.getNewlyReceivedStockSnapshot(type));
         deployer$mappedInfo.getLastClientsideStockSnapshot(type).add(unsorted);
         deployer$mappedInfo.setNewlyReceivedStockSnapshot(type, null);
+    }
+
+    @Override
+    public Deployer$MappedInfo deployer$getMappedInfo() {
+        return deployer$mappedInfo;
     }
 }

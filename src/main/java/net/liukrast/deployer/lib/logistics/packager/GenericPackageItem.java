@@ -9,17 +9,23 @@ import net.minecraft.world.item.TooltipFlag;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class GenericPackageItem extends PackageItem {
     public final boolean cardboard;
-
-    public GenericPackageItem(Properties properties, CustomPackageStyle style) {
-        this(properties, style, false);
+    private final Supplier<StockInventoryType<?,?,?>> type;
+    public GenericPackageItem(Properties properties, CustomPackageStyle style, Supplier<StockInventoryType<?,?,?>> type) {
+        this(properties, style, false, type);
     }
 
-    public GenericPackageItem(Properties properties, CustomPackageStyle style, boolean cardboard) {
+    public GenericPackageItem(Properties properties, CustomPackageStyle style, boolean cardboard, Supplier<StockInventoryType<?,?,?>> type) {
         super(properties, style.toOriginal());
         this.cardboard = cardboard;
+        this.type = type;
+    }
+
+    public StockInventoryType<?,?,?> getType() {
+        return type.get();
     }
 
     public static <K,V,H> void setOrder(StockInventoryType<K,V,H> type, ItemStack box, int orderId, int linkIndex, boolean isFinalLink, int fragmentIndex,

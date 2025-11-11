@@ -4,6 +4,7 @@ import net.createmod.catnip.net.base.BasePacketPayload;
 import net.createmod.catnip.net.base.CatnipPacketRegistry;
 import net.liukrast.deployer.lib.DeployerConstants;
 import net.liukrast.deployer.lib.logistics.board.cache.PanelCacheUpdatePacket;
+import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderRequestPacket;
 import net.liukrast.deployer.lib.logistics.stockTicker.LogisticalStockGenericRequestPacket;
 import net.liukrast.deployer.lib.logistics.stockTicker.LogisticalStockGenericResponsePacket;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -15,15 +16,18 @@ import java.util.Locale;
 public enum DeployerPackets implements BasePacketPayload.PacketTypeProvider {
     PANEL_CACHE_UPDATE(PanelCacheUpdatePacket.class, PanelCacheUpdatePacket.STREAM_CODEC),
     LOGISTICS_STOCK_RESPONSE(LogisticalStockGenericResponsePacket.class, LogisticalStockGenericResponsePacket.STREAM_CODEC),
-    LOGISTICS_STOCK_GENERIC_REQUEST(LogisticalStockGenericRequestPacket.class, LogisticalStockGenericRequestPacket.STREAM_CODEC);
+    LOGISTICS_STOCK_GENERIC_REQUEST(LogisticalStockGenericRequestPacket.class, LogisticalStockGenericRequestPacket.STREAM_CODEC),
+    GENERIC_ORDER_REQUEST(GenericOrderRequestPacket.class, GenericOrderRequestPacket.STREAM_CODEC);
 
     private final CatnipPacketRegistry.PacketType<?> type;
 
-    <T extends BasePacketPayload> DeployerPackets(Class<T> clazz, StreamCodec<? super RegistryFriendlyByteBuf, T> codec) {
+    @SuppressWarnings("unchecked")
+    <T extends BasePacketPayload> DeployerPackets(Class<T> clazz, StreamCodec<? super RegistryFriendlyByteBuf, ? extends T> codec) {
         String name = this.name().toLowerCase(Locale.ROOT);
+        StreamCodec<RegistryFriendlyByteBuf, T> unchecked = (StreamCodec<RegistryFriendlyByteBuf, T>) codec;
         this.type = new CatnipPacketRegistry.PacketType<>(
                 new CustomPacketPayload.Type<>(DeployerConstants.id(name)),
-                clazz, codec
+                clazz, unchecked
         );
     }
 

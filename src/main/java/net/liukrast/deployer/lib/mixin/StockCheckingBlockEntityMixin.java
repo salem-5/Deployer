@@ -1,6 +1,7 @@
 package net.liukrast.deployer.lib.mixin;
 
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
+import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import com.simibubi.create.content.logistics.stockTicker.StockCheckingBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import net.liukrast.deployer.lib.logistics.packager.AbstractInventorySummary;
@@ -16,6 +17,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+
+import java.util.Map;
 
 @Mixin(StockCheckingBlockEntity.class)
 public abstract class StockCheckingBlockEntityMixin extends SmartBlockEntity implements SCBEExtension {
@@ -44,5 +47,10 @@ public abstract class StockCheckingBlockEntityMixin extends SmartBlockEntity imp
     @Override
     public <K, V, H> boolean deployer$broadcastPackageRequest(StockInventoryType<K, V, H> type, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, @Nullable IdentifiedContainer<H> ignoredHandler, String address) {
         return LogisticsGenericManager.broadcastPackageRequest(type, behaviour.freqId, requestType, order, ignoredHandler, address);
+    }
+
+    @Override
+    public void deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> requests, String address) {
+        LogisticsGenericManager.broadcastAllPackageRequest(defaultOrder, behaviour.freqId, requestType, requests, address);
     }
 }

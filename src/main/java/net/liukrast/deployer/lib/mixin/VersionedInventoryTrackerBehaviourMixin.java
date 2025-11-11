@@ -9,7 +9,6 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(VersionedInventoryTrackerBehaviour.class)
 public class VersionedInventoryTrackerBehaviourMixin implements VITBExtension {
     @Shadow private int ignoredId;
-
     @Shadow private int ignoredVersion;
 
     @Override

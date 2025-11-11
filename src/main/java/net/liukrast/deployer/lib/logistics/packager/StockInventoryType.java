@@ -1,20 +1,34 @@
 package net.liukrast.deployer.lib.logistics.packager;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.serialization.Codec;
 import com.simibubi.create.api.registry.SimpleRegistry;
+import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.filter.FilterItemStack;
+import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestScreen;
+import io.netty.buffer.ByteBuf;
+import net.createmod.catnip.data.Couple;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
 import net.liukrast.deployer.lib.logistics.packagerLink.GenericRequestPromise;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.capabilities.BlockCapability;
+import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import java.util.List;
 
 /*
 * K -> key (for items, Item)
@@ -29,9 +43,11 @@ public abstract class StockInventoryType<K,V,H> {
     @NotNull public abstract IStorageHandler<K,V,H> storageHandler();
     @NotNull public abstract INetworkHandler<K,V,H> networkHandler();
     @NotNull public abstract IPackageHandler<K,V,H> packageHandler();
+    @NotNull public abstract ItemStack getIcon();
 
     public interface IValueHandler<K,V,H> {
         Codec<V> codec();
+        StreamCodec<RegistryFriendlyByteBuf, V> streamCodec();
         K fromValue(V key);
         boolean equals(V a, V b);
         boolean test(FilterItemStack filter, Level level, V value);
@@ -44,7 +60,6 @@ public abstract class StockInventoryType<K,V,H> {
         V copy(V stack);
         boolean isStackable(V stack);
         V empty();
-        int getMaxStackSize(V stack);
     }
 
     public interface IStorageHandler<K,V,H> {
@@ -78,12 +93,25 @@ public abstract class StockInventoryType<K,V,H> {
             setBoxContent(box, handler);
             return box;
         }
+        int clickAmount(boolean ctrlDown, boolean shiftDown, boolean altDown);
+        int scrollAmount(boolean ctrlDown, boolean shiftDown, boolean altDown);
+        boolean matchesModSearch(V stack, String searchValue);
+        boolean matchesTagSearch(V stack, String searchValue);
+        boolean matchesSearch(V stack, String searchValue);
+        void renderCategory(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, List<V> categoryStacks, List<V> itemsToOrder, AbstractInventorySummary<K, V> forcedEntries, CategoryRenderData data);
+        void renderOrderedItems(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, List<V> itemsToOrder, AbstractInventorySummary<K, V> forcedEntries, OrderRenderData data);
+        void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, V entry, Font font);
     }
+
+    public record CategoryRenderData(int x, int y, int itemsX, int itemsY, int categoryY, int rowHeight, int colWidth, int cols, List<StockKeeperRequestScreen.CategoryEntry> categories, float currentScroll, int windowHeight, Couple<Integer> hoveredSlot, int categoryIndex, PoseStack ms, Font font) {}
+    public record OrderRenderData(int x, int y, int itemsX, int itemsY, int rowHeight, int colWidth, int orderY, int cols, Couple<Integer> hoveredSlot, PoseStack ms) {}
+    public record SlotClickedData(int cols, boolean lmb, boolean rmb, boolean orderClicked) {}
 
     public abstract BlockCapability<H, @Nullable Direction> getCapability();
 
     public final SimpleRegistry<Block, GenericUnpackingHandler<V>> registry = SimpleRegistry.create();
 
+    @SuppressWarnings({"UnusedReturnValue", "SameParameterValue"})
     private V insertItemStacked(H inventory, V stack, boolean simulate) {
         var valueHandler = valueHandler();
         var storageHandler = storageHandler();
@@ -162,7 +190,6 @@ public abstract class StockInventoryType<K,V,H> {
 
         for (int slot = 0; slot < storageHandler.getSlots(targetInv); slot++) {
             V itemInSlot = storageHandler.getStackInSlot(targetInv, slot);
-            int itemsAddedToSlot = 0;
 
             for (int boxSlot = 0; boxSlot < items.size(); boxSlot++) {
                 V toInsert = items.get(boxSlot);
@@ -189,7 +216,6 @@ public abstract class StockInventoryType<K,V,H> {
 
                 //TODO: Implement slot limit
                 int added = valueHandler.getCount(toInsert) - valueHandler.getCount(storageHandler.insertItem(targetInv, slot, toInsert, simulate));
-                itemsAddedToSlot += added;
 
                 items.set(boxSlot, valueHandler.copyWithCount(toInsert, valueHandler.getCount(toInsert) - added));
             }

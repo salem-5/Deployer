@@ -82,10 +82,6 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
             this.availableItems = availableItems;
             return availableItems;
         }
-
-        for (int slot = 0; slot < handler.getSlots(targetInv); slot++) {
-            availableItems.add(handler.getStackInSlot(targetInv, slot));
-        }
         for(int slot = 0; slot < handler.getSlots(targetInv); slot++) {
             availableItems.add(handler.getStackInSlot(targetInv, slot));
         }
@@ -198,7 +194,7 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
                     V extracted = handler.extract(targetInv, valueHandler.create(valueHandler.fromValue(handler.getStackInSlot(targetInv, slot)), initialCount), true);
                     if (valueHandler.isEmpty(extracted))
                         continue;
-                    if(requestQueue && valueHandler.equals(extracted, nextRequest.item()))
+                    if(requestQueue && !valueHandler.equals(extracted, nextRequest.item()))
                         continue;
 
                     boolean bulky = !handler.isBulky(valueHandler.fromValue(extracted));
@@ -362,12 +358,22 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
 
     @Override
     public boolean unwrapBox(ItemStack box, boolean simulate) {
+        /* We avoid unpacking boxes that are not for this packager.
+        A fluid packager cannot pack/unpack normal packages unless it's composite */
+        if(!(box.getItem() instanceof GenericPackageItem generic)) {
+            heldBox = box;
+            return false;
+        }
+        var type = getStockType();
+        if(generic.getType() != type) {
+            heldBox = box; //TODO: CHECK
+            return false;
+        }
         if (animationTicks > 0)
             return false;
 
-        Objects.requireNonNull(this.level); //Who wrote this
+        Objects.requireNonNull(this.level); //Who wrote this?
 
-        var type = getStockType();
         var ph = type.packageHandler();
 
         H contents = ph.getContents(box);
