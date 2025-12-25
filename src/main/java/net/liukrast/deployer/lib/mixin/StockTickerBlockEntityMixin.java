@@ -8,10 +8,10 @@ import net.createmod.catnip.platform.CatnipServices;
 import net.liukrast.deployer.lib.logistics.packager.AbstractInventorySummary;
 import net.liukrast.deployer.lib.logistics.packager.IdentifiedContainer;
 import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
+import net.liukrast.deployer.lib.logistics.stockTicker.Deployer$MappedInfo;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.liukrast.deployer.lib.logistics.stockTicker.LogisticalStockGenericRequestPacket;
 import net.liukrast.deployer.lib.mixinExtensions.STBEExtension;
-import net.liukrast.deployer.lib.logistics.stockTicker.Deployer$MappedInfo;
 import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -26,9 +26,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.*;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 @Mixin(StockTickerBlockEntity.class)
 public abstract class StockTickerBlockEntityMixin extends StockCheckingBlockEntityMixin implements STBEExtension {

@@ -14,29 +14,4 @@ public class FluidInventorySummary extends AbstractInventorySummary<Fluid, Fluid
     public FluidInventorySummary() {
         super(RegisterStockInventoryTypes.FLUID.get());
     }
-
-    @Override
-    public int getCount(FluidStack stack) {
-        return stack.getAmount();
-    }
-
-    @Override
-    public Fluid keyFrom(FluidStack stack) {
-        return stack.getFluid();
-    }
-
-    @Override
-    public boolean isSameKeySameComponents(FluidStack stack1, FluidStack stack2) {
-        return FluidStack.isSameFluidSameComponents(stack1, stack2);
-    }
-
-    @Override
-    public void setCount(FluidStack stack, int count) {
-        stack.setAmount(count);
-    }
-
-    @Override
-    public FluidStack copy(FluidStack stack) {
-        return stack.copy();
-    }
 }

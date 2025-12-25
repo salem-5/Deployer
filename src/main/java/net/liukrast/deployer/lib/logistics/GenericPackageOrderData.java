@@ -2,8 +2,6 @@ package net.liukrast.deployer.lib.logistics;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.simibubi.create.content.logistics.box.PackageItem;
-import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import net.createmod.catnip.codecs.stream.CatnipStreamCodecBuilders;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.minecraft.network.RegistryFriendlyByteBuf;

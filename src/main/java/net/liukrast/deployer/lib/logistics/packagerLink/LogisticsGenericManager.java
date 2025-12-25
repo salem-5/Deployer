@@ -15,6 +15,7 @@ import net.liukrast.deployer.lib.logistics.packager.*;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.liukrast.deployer.lib.mixin.LogisticsManagerAccessor;
 import net.liukrast.deployer.lib.mixinExtensions.LLBExtension;
+import net.liukrast.deployer.lib.mixinExtensions.PRExtension;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,11 +65,11 @@ public class LogisticsGenericManager {
         return sum;
     }
 
-    public static <K,V,H> boolean broadcastPackageRequest(StockInventoryType<K,V,H> type, UUID freqId, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, @Nullable IdentifiedContainer<H> ignoredHandler, String address) {
-        return broadcastPackageRequest(type, freqId, requestType, order, ignoredHandler, address, () -> LogisticsManagerAccessor.getR().nextInt());
+    public static <K,V,H> boolean broadcastPackageRequest(StockInventoryType<K,V,H> type, UUID freqId, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, @Nullable IdentifiedContainer<H> ignoredHandler, String address, int index, boolean isFinal) {
+        return broadcastPackageRequest(type, freqId, requestType, order, ignoredHandler, address, () -> LogisticsManagerAccessor.getR().nextInt(), index, isFinal);
     }
 
-    public static <K,V,H> boolean broadcastPackageRequest(StockInventoryType<K,V,H> type, UUID freqId, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, @Nullable IdentifiedContainer<H> ignoredHandler, String address, IntSupplier id) {
+    public static <K,V,H> boolean broadcastPackageRequest(StockInventoryType<K,V,H> type, UUID freqId, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, @Nullable IdentifiedContainer<H> ignoredHandler, String address, IntSupplier id, int index, boolean isFinal) {
         if (order.isEmpty())
             return false;
 
@@ -80,7 +81,7 @@ public class LogisticsGenericManager {
                 return false;
 
         // Actually perform package creation
-        performPackageRequests(requests);
+        performPackageRequests(requests, index, isFinal);
         return true;
     }
 
@@ -99,8 +100,16 @@ public class LogisticsGenericManager {
         int id = vals.isEmpty() ? LogisticsManagerAccessor.getR().nextInt() :
                 Optional.ofNullable(vals.iterator().next()).map(PackagingRequest::orderId)
                         .orElseGet(() -> LogisticsManagerAccessor.getR().nextInt());
-        for(var entry : rq.entrySet()) {
-            broadcastPackageRequest((StockInventoryType<Object, Object, Object>)entry.getKey(), freqId, type,(GenericOrderContained<Object>) entry.getValue(), null, address, () -> id);
+        if(!rq.isEmpty()) {
+            int index = vals.isEmpty() ? 0 : 1;
+            Iterator<Map.Entry<StockInventoryType<?, ?, ?>, GenericOrderContained<?>>> it = rq.entrySet().iterator();
+            while(it.hasNext()) {
+                Map.Entry<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> entry = it.next();
+                boolean isLast = !it.hasNext();
+                broadcastPackageRequest((StockInventoryType<Object, Object, Object>) entry.getKey(), freqId, type, (GenericOrderContained<Object>) entry.getValue(), null, address, () -> id, index, isLast);
+                index++;
+            }
+            requests.values().forEach(pr -> PRExtension.class.cast(pr).deployer$flag());
         }
 
         // Actually perform package creation
@@ -166,7 +175,7 @@ public class LogisticsGenericManager {
         return requests;
     }
 
-    public static <K,V,H> void performPackageRequests(Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> requests) {
+    public static <K,V,H> void performPackageRequests(Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> requests, int index, boolean isFinal) {
         Map<AbstractPackagerBlockEntity<K,V,H>, Collection<GenericPackagingRequest<V>>> asMap = requests.asMap();
         for (Map.Entry<AbstractPackagerBlockEntity<K,V,H>, Collection<GenericPackagingRequest<V>>> entry : asMap.entrySet()) {
             ArrayList<GenericPackagingRequest<V>> queuedRequests = new ArrayList<>(entry.getValue());
@@ -177,7 +186,7 @@ public class LogisticsGenericManager {
             for (int i = 0; i < 100; i++) {
                 if (queuedRequests.isEmpty())
                     break;
-                packager.attemptToSendSpecial(queuedRequests);
+                packager.attemptToSendSpecial(queuedRequests, index, isFinal);
             }
 
             packager.triggerStockCheck();

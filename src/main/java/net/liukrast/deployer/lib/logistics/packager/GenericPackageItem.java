@@ -34,6 +34,7 @@ public class GenericPackageItem extends PackageItem {
         box.set(type.networkHandler().getComponent(), order);
     }
 
+
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext tooltipContext, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
         super.appendHoverText(stack, tooltipContext, tooltipComponents, tooltipFlag);

@@ -2,7 +2,6 @@ package net.liukrast.deployer.lib.logistics.stockTicker;
 
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import net.createmod.catnip.net.base.ClientboundPacketPayload;
-import net.liukrast.deployer.lib.DeployerConstants;
 import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
 import net.liukrast.deployer.lib.mixinExtensions.STBEExtension;
 import net.liukrast.deployer.lib.registry.DeployerPackets;
@@ -10,17 +9,14 @@ import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
-import java.util.Objects;
 
 public class LogisticalStockGenericResponsePacket<V> implements ClientboundPacketPayload {
     @SuppressWarnings("unchecked")

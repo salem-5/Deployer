@@ -41,4 +41,5 @@ public record GenericPackagingRequest<V>(
     public boolean isEmpty() {
         return getCount() == 0;
     }
+
 }

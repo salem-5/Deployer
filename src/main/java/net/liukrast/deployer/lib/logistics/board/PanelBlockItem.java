@@ -20,6 +20,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -28,35 +29,51 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
- * The item for a panel.
- * */
+ * Represents an item used to place a factory panel.
+ * Handles panel creation, placement validation, and optional network linking.
+ * Provides hooks for customizing messages and extra placement data.
+ */
 public class PanelBlockItem extends BlockItem {
 
     private final Supplier<PanelType<?>> type;
 
+    /**
+     * Constructs a new PanelBlockItem with a panel type and item properties.
+     *
+     * @param type the supplier of the panel type
+     * @param properties the item properties
+     */
     public PanelBlockItem(Supplier<PanelType<?>> type, Properties properties) {
         super(AllBlocks.FACTORY_GAUGE.get(), properties);
         this.type = type;
     }
 
-    /* IMPL */
     /**
-     * Whether the itemStack is ready to be placed. For instance, the default Factory Gauge cannot be placed unless it's tuned to a network
-     * @return A Component with the error message. If the message is null, the gauge can be placed
-     * */
+     * Checks whether the item stack is ready to be placed.
+     * For example, a panel may require network tuning before it can be placed.
+     *
+     * @param stack the item stack to place
+     * @param level the level in which it will be placed
+     * @param pos the target block position
+     * @param player the player placing the item
+     * @return a component with an error message if placement is not allowed, null if placement is allowed
+     */
     public Component isReadyForPlacement(ItemStack stack, Level level, BlockPos pos, @Nullable Player player) {
         return null;
     }
 
     /**
-     * Gets the display message when the link is added. For instance, the default Factory Gauge will send a message when placed
-     * */
+     * Gets the message to display to the player after the panel is placed.
+     * Can be overridden to provide custom feedback.
+     *
+     * @return the component containing the placed message
+     */
     @NotNull
     public Component getPlacedMessage() {
         return Component.empty();
     }
-    /* IMPL */
 
+    @ApiStatus.Internal
     @Override
     public @NotNull InteractionResult place(BlockPlaceContext context) {
         var player = context.getPlayer();
@@ -67,6 +84,7 @@ public class PanelBlockItem extends BlockItem {
         return InteractionResult.FAIL;
     }
 
+    @ApiStatus.Internal
     @Override
     public @NotNull InteractionResult useOn(@NotNull UseOnContext context) {
         InteractionResult interactionResult = this.place(new BlockPlaceContext(context));
@@ -79,10 +97,25 @@ public class PanelBlockItem extends BlockItem {
         }
     }
 
+    /**
+     * Creates a new panel behavior instance for a given block entity and slot.
+     *
+     * @param blockEntity the factory panel block entity
+     * @param slot the slot the panel occupies
+     * @return the new behavior instance
+     */
     protected AbstractPanelBehaviour getNewBehaviourInstance(FactoryPanelBlockEntity blockEntity, FactoryPanelBlock.PanelSlot slot) {
         return type.get().create(blockEntity, slot);
     }
 
+    /**
+     * Applies extra placement data to a newly placed panel.
+     * Handles network linking and notifies the player with a placement message.
+     *
+     * @param context the block place context
+     * @param blockEntity the factory panel block entity
+     * @param targetedSlot the slot being targeted
+     */
     public void applyExtraPlacementData(BlockPlaceContext context, FactoryPanelBlockEntity blockEntity, FactoryPanelBlock.PanelSlot targetedSlot) {
         var stack = context.getItemInHand();
         applyToSlot(blockEntity, targetedSlot, LogisticallyLinkedBlockItem.networkFromStack(FactoryPanelBlockItem.fixCtrlCopiedStack(stack)));
@@ -97,6 +130,15 @@ public class PanelBlockItem extends BlockItem {
         player.displayClientMessage(message, true);
     }
 
+    /**
+     * Applies a network ID to a specific panel slot if the slot is empty or inactive.
+     * Attaches a new behavior and plays a placement sound if needed.
+     *
+     * @param blockEntity the factory panel block entity
+     * @param slot the slot to apply to
+     * @param networkId the network ID to assign, or null
+     * @return true if a new behavior was applied, false otherwise
+     */
     public boolean applyToSlot(FactoryPanelBlockEntity blockEntity, FactoryPanelBlock.PanelSlot slot, @Nullable UUID networkId) {
         var oldBehaviour = blockEntity.panels.get(slot);
         if(oldBehaviour == null || !oldBehaviour.isActive()) {

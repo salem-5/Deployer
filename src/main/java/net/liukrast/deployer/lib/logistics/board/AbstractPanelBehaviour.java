@@ -31,6 +31,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.registries.DeferredHolder;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,16 +41,20 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Defines a custom panel. Register it through {@link PanelType}
- * */
+ * Represents a custom factory panel behavior.
+ * This class allows the creation of custom panels that extend the standard
+ * FactoryPanelBehaviour system from the Create mod.
+ * Panels can define custom connections, rendering, item association, and value propagation.
+ * Use {@link PanelType} to register your custom panels.
+ */
 public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
-    /* JAVADOC CODE */
     private final PanelType<?> type;
     private final Reference2ObjectArrayMap<PanelConnection<?>, Supplier<?>> connections = new Reference2ObjectArrayMap<>();
 
     /**
      * Common color used to warn the user that the connection is currently waiting for the next tick to update
      * */
+    @SuppressWarnings("unused")
     protected static final int WAITING = 0xffd541;
     /**
      * Common color used to warn the user that the connection doesn't do anything
@@ -57,13 +62,26 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     protected static final int DISABLED = 0x888898;
 
     /**
-     * This constructor allows to modify the valueBoxTransform to make a custom input system
-     * */
+     * Constructs a panel behavior with a custom ValueBoxTransform.
+     * This constructor allows customizing the input system.
+     *
+     * @param valueBoxTransform the transform to use for the panel's ValueBox
+     * @param type the type of panel
+     * @param be the block entity this panel belongs to
+     * @param slot the panel slot in the block
+     */
     public AbstractPanelBehaviour(ValueBoxTransform valueBoxTransform, PanelType<?> type, FactoryPanelBlockEntity be, FactoryPanelBlock.PanelSlot slot) {
         this(type, be, slot);
         ((FilteringBehaviourMixin)this).setValueBoxTransform(valueBoxTransform);
     }
 
+    /**
+     * Constructs a panel behavior with the given type.
+     *
+     * @param type the type of panel
+     * @param be the block entity this panel belongs to
+     * @param slot the panel slot in the block
+     */
     public AbstractPanelBehaviour(PanelType<?> type, FactoryPanelBlockEntity be, FactoryPanelBlock.PanelSlot slot) {
         super(be, slot);
         var builder = new PanelConnectionBuilder();
@@ -73,38 +91,52 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     }
 
     /**
-     * Adds a new connection provider to this gauge.
-     * This means other gauges can read information from this gauge.
-     * Also keep in mind that the order these connections is added is important for some panels which read multiple connections.
-     * E.g. a panel which accepts both string and redstone, will decide which to read it based on the priority you gave here
-     * */
+     * Adds new connections to this panel.
+     * The order of connection registration is important for panels that
+     * can read multiple connections.
+     * Use the builder to register each connection along with its getter.
+     *
+     * @param builder the connection builder used to register panel connections
+     */
     public abstract void addConnections(PanelConnectionBuilder builder);
 
     /**
-     * @return the connections set, sorted
-     * */
+     * Returns all registered connections for this panel.
+     *
+     * @return the set of connections
+     */
     public Set<PanelConnection<?>> getConnections() {
         return connections.keySet();
     }
 
     /**
-     * @return Whether the panel has a precise connection, using forge's deferred holder
-     * */
+     * Checks if this panel has a specific connection.
+     *
+     * @param connection the connection to check
+     * @param <T> the type of value the connection provides
+     * @return true if this panel has the connection, false otherwise
+     */
     public <T> boolean hasConnection(DeferredHolder<PanelConnection<?>, PanelConnection<T>> connection) {
-        return hasConnection(connection.get());
+        return hasConnection(connection.value());
     }
 
     /**
-     * @return Whether this behavior has a precise connection
-     * */
+     * Checks if this panel has a specific connection.
+     *
+     * @param connection the connection to check
+     * @return true if this panel has the connection, false otherwise
+     */
     public boolean hasConnection(PanelConnection<?> connection) {
         return connections.containsKey(connection);
     }
 
     /**
-     * @param shortenNumbers whether the display is in mode "shortened" or "full_number"
-     * @return The component for display links
-     * */
+     * Returns the display component for a link to another panel.
+     *
+     * @param shortenNumbers whether to use shortened numeric display
+     * @return the component used for display
+     */
+    @SuppressWarnings("unused")
     public MutableComponent getDisplayLinkComponent(boolean shortenNumbers) {
         return Component.empty();
     }
@@ -117,9 +149,12 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     }
 
     /**
-     * @return Whether the panel should render its bulb
-     * */
-    public boolean shouldRenderBulb(boolean original) {
+     * Determines whether this panel should render its bulb.
+     *
+     * @param original the original rendering value
+     * @return true if the bulb should be rendered, false otherwise
+     */
+    public boolean shouldRenderBulb(@SuppressWarnings("unused") boolean original) {
         return false;
     }
 
@@ -137,8 +172,12 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     public abstract Item getItem();
 
     /**
-     * @return the model for your custom gauge. Will automatically be used for rendering.
-     * */
+     * Returns the model for this custom panel.
+     *
+     * @param panelState the current panel state
+     * @param panelType the type of panel
+     * @return the PartialModel used for rendering
+     */
     public abstract PartialModel getModel(FactoryPanelBlock.PanelState panelState, FactoryPanelBlock.PanelType panelType);
 
     /**
@@ -154,8 +193,10 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     public void easyRead(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket) {}
 
     /**
-     * Opens the editor screen for this panel
-     * */
+     * Opens the editor screen for this panel on the client.
+     *
+     * @param player the player interacting with the panel
+     */
     @OnlyIn(Dist.CLIENT)
     @Override
     public void displayScreen(Player player) {
@@ -164,40 +205,57 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     }
 
     /**
-     * This function is called when trying to connect two gauges together.
-     * The default declaration you see below ignores the {@code no_item} issue,
-     * since most of the custom gauges do not actually need a custom item inside to connect.
-     * @return whether it should ignore or not the issue inserted.
-     * */
+     * Determines whether this panel should ignore specific connection issues.
+     *
+     * @param issue the issue string
+     * @return true to ignore, false otherwise
+     */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean ignoreIssue(@Nullable String issue) {
         return "factory_panel.no_item".equals(issue);
     }
 
     /**
-     * Generates color per connections with other gauges.
-     * @param original the original color a normal gauge would return (just in case you needed)
-     * */
+     * Calculates the connection path color when connecting to another panel.
+     *
+     * @param other the other panel behavior
+     * @param original the original color
+     * @return the calculated color
+     */
+    @SuppressWarnings("unused")
     public int calculatePath(FactoryPanelBehaviour other, int original) {
         return DISABLED;
     }
 
     /**
-     * Generates color per connections with extra panel elements
-     * */
+     * Calculates the connection path color for {@link net.liukrast.deployer.lib.logistics.board.connection.ConnectionExtra} panel elements.
+     *
+     * @param pos the position of the extra element
+     * @return the calculated color
+     */
+    @SuppressWarnings("unused")
     public int calculateExtraPath(BlockPos pos) {
         return DISABLED;
     }
 
     /**
-     * @return Obtains the value another panel is providing for this special panel connection
-     * */
+     * Returns the value provided by another panel connection.
+     *
+     * @param connection the panel connection
+     * @param <T> the value type
+     * @return the optional value
+     */
     public <T> Optional<T> getConnectionValue(DeferredHolder<PanelConnection<?>, PanelConnection<T>> connection) {
         return getConnectionValue(connection.get());
     }
 
     /**
-     * @return Obtains the value another panel is providing for this special panel connection
-     * */
+     * Returns the value provided by another panel connection.
+     *
+     * @param connection the panel connection
+     * @param <T> the value type
+     * @return the optional value
+     */
     public <T> Optional<T> getConnectionValue(PanelConnection<T> connection) {
         if(!connections.containsKey(connection)) return Optional.empty();
         // We can safely cast here.
@@ -206,8 +264,11 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     }
 
     /**
-     * Executes a consumer for each link connected to this panel
-     * */
+     * Executes a consumer for each link connected to this panel.
+     *
+     * @param consumer the consumer to apply
+     */
+    @SuppressWarnings("unused")
     public void consumeForLinks(Consumer<FactoryPanelSupportBehaviour> consumer) {
         for(FactoryPanelConnection connection : targetedByLinks.values()) {
             if(!getWorld().isLoaded(connection.from.pos())) return;
@@ -219,10 +280,14 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     }
 
     /**
-     * Executes a consumer for each gauge connected.
-     * @param panelConnection defines what connection value we are trying to gather from our panels
-     * @param toConsider All the other connections to consider. If your panel extracts another connection value somewhere else, you should put that here. This way, if the panel has a priority on that other connection, it will not be added to the consumer list
-     * */
+     * Executes a consumer for each connected panel.
+     *
+     * @param panelConnection the connection value to retrieve
+     * @param consumer the consumer to apply
+     * @param toConsider other connections to ignore for priority
+     * @param <T> the value type
+     */
+    @SuppressWarnings("unused")
     public <T> void consumeForPanels(PanelConnection<T> panelConnection, Consumer<T> consumer, PanelConnection<?>... toConsider) {
         block: for(FactoryPanelConnection connection : targetedBy.values()) {
             if(!getWorld().isLoaded(connection.from.pos())) return;
@@ -239,8 +304,13 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
     }
 
     /**
-     * Executes a consumer for each extra panel element connected
-     * */
+     * Executes a consumer for each extra panel element connected.
+     *
+     * @param panelConnection the connection value to retrieve
+     * @param consumer the bi-consumer to apply with block position and value
+     * @param <T> the value type
+     */
+    @SuppressWarnings("unused")
     public <T> void consumeForExtra(PanelConnection<T> panelConnection, BiConsumer<BlockPos, T> consumer) {
         Set<BlockPos> toRemove = new HashSet<>();
         for(var connection : ((FPBExtension)this).deployer$getExtra().values()) {
@@ -262,33 +332,60 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
         if(!toRemove.isEmpty()) blockEntity.notifyUpdate();
     }
 
-    /* UTIL METHODS IMPLEMENTATION */
+    /**
+     * @return Allows to get {@link FactoryPanelBehaviour#timer}
+     * */
+    @SuppressWarnings({"JavadocReference", "unused"})
     public int getTimer() {
         return ((FactoryPanelBehaviourAccessor)this).timer();
     }
 
+    /**
+     * @return Allows to get {@link FactoryPanelBehaviour#lastReportedLevelInStorage}
+     * */
+    @SuppressWarnings({"JavadocReference", "unused"})
     public int getLastReportedLevelInStorage() {
         return ((FactoryPanelBehaviourAccessor)this).lastReportedLevelInStorage();
     }
 
+    /**
+     * @return Allows to get {@link FactoryPanelBehaviour#lastReportedUnloadedLinks}
+     * */
+    @SuppressWarnings({"JavadocReference", "unused"})
     public int getLastReportedUnloadedLinks() {
         return ((FactoryPanelBehaviourAccessor)this).lastReportedUnloadedLinks();
     }
 
+    /**
+     * @return Allows to get {@link FactoryPanelBehaviour#lastReportedPromises}
+     * */
+    @SuppressWarnings({"JavadocReference", "unused"})
     public int getLastReportedPromises() {
         return ((FactoryPanelBehaviourAccessor)this).lastReportedPromises();
     }
 
-    /* API IMPLEMENTATION */
+    /**
+     * @return the panel type
+     */
     public PanelType<?> getPanelType() {
         return type;
     }
 
+    /**
+     * Creates the menu for this gauge. Since this is not necessary for a basic gauge, we return null
+     * @param containerId The container ID
+     * @param playerInventory The player involved's inventory
+     * @param player The player involved
+     * @return The container to open
+     * */
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
         return null;
     }
 
+    /**
+     * Removes the panel
+     * */
     @Override
     public void destroy() {
         super.destroy();
@@ -303,6 +400,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
         }
     }
 
+    @ApiStatus.Internal
     @Override
     public void read(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket) {
         super.read(nbt, registries, clientPacket);
@@ -316,6 +414,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
         easyRead(panelTag, registries, clientPacket);
     }
 
+    @ApiStatus.Internal
     @Override
     public void writeSafe(CompoundTag nbt, HolderLookup.Provider registries) {
         super.writeSafe(nbt, registries);
@@ -324,6 +423,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
         nbt.put("CustomPanels", special);
     }
 
+    @ApiStatus.Internal
     @Override
     public void write(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket) {
         CompoundTag special = nbt.contains("CustomPanels") ? nbt.getCompound("CustomPanels") : new CompoundTag();
@@ -358,17 +458,25 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
         nbt.put(CreateLang.asId(slot.name()), panelTag);
     }
 
+    @ApiStatus.Internal
     @Override
     public boolean canShortInteract(ItemStack toApply) {
         return withFilteringBehaviour() && super.canShortInteract(toApply);
     }
 
+    /**
+     * @return The filter item that factory gauges will get
+     * */
     @Override
     public ItemStack getFilter() {
         return getConnectionValue(DeployerPanelConnections.ITEMSTACK).orElse(ItemStack.EMPTY);
     }
 
+    /**
+     * Notifies connected panels of redstone output changes.
+     */
     // We invoke the private function through mixin. Create, why are you making this method private...
+    @SuppressWarnings("unused")
     public void notifyRedstoneOutputs() {
         for(FactoryPanelPosition panelPos : targeting) {
             if(!getWorld().isLoaded(panelPos.pos()))
@@ -380,31 +488,59 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
         ((FactoryPanelBehaviourIMixin)this).invokeNotifyRedstoneOutputs();
     }
 
+    /**
+     * @return whether this panel accepts value settings
+     */
     @Override
     public boolean acceptsValueSettings() {
         return true;
     }
 
+    /**
+     * @return the display name of this panel
+     */
     @Override
     public @NotNull Component getDisplayName() {
         return getItem().getDefaultInstance().getHoverName();
     }
 
+    /**
+     * @return the items required by this panel
+     */
     @Override
     public ItemRequirement getRequiredItems() {
         return isActive() ? new ItemRequirement(ItemRequirement.ItemUseType.CONSUME, getItem())
                 : ItemRequirement.NONE;
     }
 
+    /**
+     * Builder for registering panel connections.
+     */
     public static class PanelConnectionBuilder {
         private final Map<PanelConnection<?>, Supplier<?>> map = new Reference2ObjectArrayMap<>();
 
         private PanelConnectionBuilder() {}
 
+        /**
+         * Registers a connection with its getter function.
+         *
+         * @param panelConnection the panel connection to register
+         * @param getter the supplier that provides the connection value
+         * @param <T> the value type
+         * @return this builder for chaining
+         */
         public <T> PanelConnectionBuilder put(@NotNull DeferredHolder<PanelConnection<?>, PanelConnection<T>> panelConnection, @NotNull Supplier<T> getter) {
             return put(panelConnection.get(), getter);
         }
 
+        /**
+         * Registers a connection with its getter function.
+         *
+         * @param panelConnection the panel connection to register
+         * @param getter the supplier that provides the connection value
+         * @param <T> the value type
+         * @return this builder for chaining
+         */
         public <T> PanelConnectionBuilder put(@NotNull PanelConnection<T> panelConnection, @NotNull Supplier<T> getter) {
             map.put(panelConnection, getter);
             return this;

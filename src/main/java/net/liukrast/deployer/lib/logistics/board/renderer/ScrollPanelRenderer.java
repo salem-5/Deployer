@@ -20,11 +20,20 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@ApiStatus.Internal
 public class ScrollPanelRenderer {
+
+    /**
+     * Updates the highlighting and hover tooltip for all active scroll panel behaviors
+     * that the player is currently looking at.
+     * Checks if the block is a SmartBlockEntity, iterates its behaviors, and displays
+     * outlines and tooltips for panels that are hit and active.
+     */
     public static void tick() {
         Minecraft mc = Minecraft.getInstance();
         HitResult target = mc.hitResult;
@@ -68,6 +77,16 @@ public class ScrollPanelRenderer {
         }
     }
 
+    /**
+     * Creates and displays an outline box for the given scroll panel behavior.
+     * Chooses between text or icon display depending on the behavior type,
+     * sets passive/wide outline properties, and highlights the relevant block face.
+     *
+     * @param pos the block position of the panel
+     * @param face the block face currently being targeted
+     * @param behaviour the scroll panel behavior to render
+     * @param highlight whether this panel should be highlighted
+     */
     protected static void addBox(BlockPos pos, Direction face, ScrollPanelBehaviour behaviour,
                                  boolean highlight) {
         AABB bb = new AABB(Vec3.ZERO, Vec3.ZERO).inflate(.5f)

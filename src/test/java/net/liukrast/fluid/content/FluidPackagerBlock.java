@@ -7,6 +7,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.capabilities.Capabilities;
 
+@Deprecated
 public class FluidPackagerBlock extends AbstractPackagerBlock {
     public FluidPackagerBlock(Properties properties) {
         super(properties);

@@ -390,6 +390,8 @@ public class FluidStockInventoryType extends StockInventoryType<Fluid, FluidStac
         public void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, FluidStack entry, Font font) {
             GuiRenderingHelper.renderTooltip(graphics, entry, mouseX, mouseY, font);
         }
+
+
     };
 
     @Override

@@ -9,14 +9,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.client.ClientTooltipFlag;
@@ -28,7 +25,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Helper class that contains several methods related to GUI rendering
+ * */
 public class GuiRenderingHelper {
+    private GuiRenderingHelper() {}
+
+    /**
+     * Renders a fluid sprite in a box, in GUI context
+     * @param graphics The GUI graphics
+     * @param stack The fluidstack to render
+     * @param x The box's x position
+     * @param y The box's y position
+     * @param width The box width
+     * @param height The box height
+     * */
     public static void renderFluid(GuiGraphics graphics, FluidStack stack, int x, int y, int width, int height) {
         RenderSystem.enableBlend();
 
@@ -59,6 +70,23 @@ public class GuiRenderingHelper {
         RenderSystem.disableBlend();
     }
 
+    /**
+     * Draws a texture sprite repeatedly in a tiled 16×16 pattern, supporting partial tiles
+     * on the top and right edges based on the provided dimensions and scaled texture height.
+     *
+     * @param guiGraphics  the GUI graphics context used for rendering
+     * @param tiledWidth   total width, in pixels, to fill with repeated tiles
+     * @param tiledHeight  total height baseline used to compute vertical placement
+     * @param color        ARGB color multiplier applied before rendering
+     * @param scaledAmount the vertical fill amount, determining how many tiles are drawn
+     * @param sprite       the texture atlas sprite to tile
+     * @param posX         X coordinate where tiling begins
+     * @param posY         Y coordinate used as a reference for bottom alignment
+     *
+     * @implNote This method expects the block atlas to be already bound as the active texture.
+     * It also assumes the sprite is 16×16 pixels
+     * Using non-standard sprite sizes may result in incorrect masking or stretching.
+     */
     private static void drawTiledSprite(GuiGraphics guiGraphics, final int tiledWidth, final int tiledHeight, int color, long scaledAmount, TextureAtlasSprite sprite, int posX, int posY) {
         RenderSystem.setShaderTexture(0, InventoryMenu.BLOCK_ATLAS);
         Matrix4f matrix = guiGraphics.pose().last().pose();
@@ -87,6 +115,15 @@ public class GuiRenderingHelper {
         }
     }
 
+    /**
+     * Sets the active shader color using an ARGB integer.
+     *
+     * <p>This affects all later rendering operations until the color is changed again.</p>
+     *
+     * @param color ARGB color packed into a single integer (alpha in the highest byte)
+     *
+     * @implNote Callers are responsible for restoring the previous shader color if needed.
+     */
     private static void setGLColorFromInt(int color) {
         float red = (color >> 16 & 0xFF) / 255.0F;
         float green = (color >> 8 & 0xFF) / 255.0F;
@@ -96,7 +133,24 @@ public class GuiRenderingHelper {
         RenderSystem.setShaderColor(red, green, blue, alpha);
     }
 
-    private static void drawTextureWithMasking(Matrix4f matrix, float xCoord, float yCoord, TextureAtlasSprite textureSprite, long maskTop, long maskRight, float zLevel) {
+    /**
+     * Draws a quad of the specified sprite, masking out a number of pixels from
+     * the top and right sides.
+     * This effectively crops the sprite before rendering.
+     *
+     *
+     * @param matrix        transformation matrix used for vertex placement
+     * @param xCoord        X position of the quad
+     * @param yCoord        Y position of the quad
+     * @param textureSprite the texture atlas sprite to render
+     * @param maskTop       number of pixels to omit from the top of the sprite
+     * @param maskRight     number of pixels to omit from the right of the sprite
+     * @param zLevel        Z depth at which the quad is rendered
+     *
+     * @implNote Must be called in a valid rendering context with the correct shader and atlas bound.
+     * The masking logic assumes a 16×16 sprite area for UV interpolation.
+     */
+    private static void drawTextureWithMasking(Matrix4f matrix, float xCoord, float yCoord, TextureAtlasSprite textureSprite, long maskTop, long maskRight, @SuppressWarnings("SameParameterValue") float zLevel) {
         float uMin = textureSprite.getU0();
         float uMax = textureSprite.getU1();
         float vMin = textureSprite.getV0();
@@ -115,6 +169,18 @@ public class GuiRenderingHelper {
         BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
     }
 
+    /**
+     * Renders a tooltip for a {@link FluidStack}, including advanced information
+     * such as the fluid registry name when advanced tooltips are enabled.
+     *
+     * @param graphics the GUI graphics renderer
+     * @param stack    the fluid stack whose tooltip should be displayed
+     * @param mouseX   current mouse X coordinate
+     * @param mouseY   current mouse Y coordinate
+     * @param font     font used to render the tooltip
+     *
+     * @apiNote Fluids that are not properly registered may not provide a valid registry key.
+     */
     public static void renderTooltip(GuiGraphics graphics, FluidStack stack, int mouseX, int mouseY, Font font) {
         List<Component> tooltip = new ArrayList<>();
         tooltip.add(stack.getHoverName());

@@ -17,21 +17,28 @@ import com.simibubi.create.foundation.blockEntity.behaviour.inventory.CapManipul
 import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.math.BlockFace;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
+import net.liukrast.deployer.lib.logistics.OrderStockTypeData;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.liukrast.deployer.lib.mixin.PackagerBlockEntityAccessor;
 import net.liukrast.deployer.lib.mixinExtensions.LLBExtension;
 import net.liukrast.deployer.lib.mixinExtensions.RPQExtension;
 import net.liukrast.deployer.lib.mixinExtensions.VITBExtension;
+import net.liukrast.deployer.lib.registry.DeployerDataComponents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
+/**
+ * This class generalizes the concept of a "Packager",
+ * making it able to pack/unpack non-item related packages 
+ * */
 public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEntity {
     public CapManipulationBehaviourBase<H, ? extends CapManipulationBehaviourBase<?,?>> targetInventory;
     private AbstractInventorySummary<K,V> availableItems;
@@ -53,11 +60,13 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
         behaviours.add(targetInventory = createTargetInventory());
     }
 
+    @ApiStatus.Internal
     @Override
     public InventorySummary getAvailableItems() {
         throw new IllegalCallerException("This function should not be invoked on abstract packagers");
     }
 
+    @ApiStatus.Internal
     @Override
     public void attemptToSend(List<PackagingRequest> queuedRequests) {
         throw new IllegalCallerException("This function should not be invoked on abstract packagers");
@@ -144,6 +153,10 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
     }
 
     public void attemptToSendSpecial(@Nullable List<GenericPackagingRequest<V>> queuedRequests) {
+        attemptToSendSpecial(queuedRequests, 0, true);
+    }
+
+    public void attemptToSendSpecial(@Nullable List<GenericPackagingRequest<V>> queuedRequests, int index, boolean isFinal) {
         if (queuedRequests == null && (!heldBox.isEmpty() || animationTicks != 0 || buttonCooldown > 0))
             return;
 
@@ -259,9 +272,11 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
 
         if (fixedAddress != null)
             PackageItem.addAddress(createdBox, fixedAddress);
-        if (requestQueue)
+        if (requestQueue) {
             GenericPackageItem.setOrder(type, createdBox, fixedOrderId, linkIndexInOrder, finalLinkInOrder, packageIndexAtLink,
                     finalPackageAtLink, orderContext);
+            createdBox.set(DeployerDataComponents.ORDER_STOCK_TYPE_DATA, new OrderStockTypeData(index, isFinal));
+        }
         if (!requestQueue && !signBasedAddress.isBlank())
             PackageItem.addAddress(createdBox, signBasedAddress);
 

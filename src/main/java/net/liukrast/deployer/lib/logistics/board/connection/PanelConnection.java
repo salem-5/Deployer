@@ -7,22 +7,47 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.neoforged.neoforge.event.level.LevelEvent;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 /**
- * A panel connection. Register it through {@link }
- * */
+ * Represents a connection type that a factory panel can establish with blocks in the world.
+ * A panel connection defines:
+ * <ul>
+ *     <li>optional block-specific logic through {@link ConnectionExtra}</li>
+ *     <li>a default value provider when no special rules apply</li>
+ * </ul>
+ * Instances must be registered in the panel connection registry {@link DeployerRegistries#PANEL_CONNECTION} to be usable.
+ * @param <T> the type of connection data provided to the panel
+ */
 public class PanelConnection<T> {
     private final Map<Block, ConnectionExtra<T>> extraConnections = new HashMap<>();
     private final Function<FactoryPanelBehaviour, T> defaultProvider;
 
+    /**
+     * Creates a new panel connection with a default value provider.
+     *
+     * @param defaultProvider the function supplying the default connection data for a panel behavior
+     */
     public PanelConnection(Function<FactoryPanelBehaviour, T> defaultProvider) {
         this.defaultProvider = defaultProvider;
     }
 
+    /**
+     * Registers a block-specific listener that supplies custom connection logic.
+     * The listener will only apply to the provided blocks.
+     * Usually, these are registered on a {@link net.neoforged.neoforge.event.level.LevelEvent.Load}.
+     * See {@link net.liukrast.deployer.lib.Deployer#loadLevel(LevelEvent.Load)} for reference
+     *
+     * @param supplier    the connection logic for matching blocks
+     * @param validBlocks the blocks supported by this listener
+     *
+     * @implNote If no blocks are specified, an error is logged and the listener is ignored.
+     */
+    @SuppressWarnings("JavadocReference")
     public void addListener(ConnectionExtra<T> supplier, Block... validBlocks) {
         if(validBlocks.length == 0) DeployerConstants.LOGGER.error("Registered panel connection listener without any blocks. {}", this);
         for(var block : validBlocks) {
@@ -30,6 +55,14 @@ public class PanelConnection<T> {
         }
     }
 
+    /**
+     * Determines the logical facing direction of a block, based on its placement properties.
+     * This is used to infer panel connection context such as orientation, default I/O direction
+     * or implied adjacency behavior.
+     *
+     * @param state the block state to analyze
+     * @return the facing direction derived from the state, or {@code null} if none could be determined
+     */
     public static Direction makeContext(BlockState state) {
         if(state.hasProperty(BlockStateProperties.ATTACH_FACE)) {
             var attachFace = state.getValue(BlockStateProperties.ATTACH_FACE);
@@ -43,14 +76,30 @@ public class PanelConnection<T> {
         return null;
     }
 
+    /**
+     * Retrieves a registered block-specific listener for the given block.
+     *
+     * @param block the block being queried
+     * @return the associated listener, or {@code null} if the block has no extra logic
+     */
     public ConnectionExtra<T> getListener(Block block) {
         return extraConnections.get(block);
     }
 
+    /**
+     * Computes the default connection data for a panel behavior.
+     * Invoked when no block-specific listener is available.
+     *
+     * @param behaviour the behavior requesting default connection data
+     * @return the generated default value
+     */
     public T getDefault(FactoryPanelBehaviour behaviour) {
         return defaultProvider.apply(behaviour);
     }
 
+    /**
+     * @return the registry identifier of this connection, or {@code "unregistered"} if not registered
+     */
     @Override
     public String toString() {
         var id = DeployerRegistries.PANEL_CONNECTION.getKey(this);

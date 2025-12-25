@@ -14,38 +14,83 @@ import net.liukrast.deployer.lib.DeployerConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 
 /**
- * Defines a basic screen for gauges. Automatically adds all the required basic buttons, so you only have to develop your custom stuff.
- * To expand the screen, no need to make a special background. Override {@link BasicPanelScreen#getWindowWidth()} and {@link BasicPanelScreen#getWindowHeight()}
- * */
+ * Represents a basic GUI screen for factory panels.
+ * Automatically provides all the common buttons for panel management.
+ * Users only need to override window dimensions and add custom widgets if desired.
+ *
+ * @param <T> the type of panel behavior displayed
+ */
 public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends AbstractSimiScreen {
+    @ApiStatus.Internal
     public static final ResourceLocation TEXTURE = DeployerConstants.id("textures/gui/generic_gauge.png");
 
+    /**
+     * The panel behavior associated with this screen.
+     */
     public final T behaviour;
+    /**
+     * Whether a reset should be sent to the server when the screen closes.
+     */
     private boolean sendReset;
 
+    /**
+     * Constructs a new screen for the given panel behavior.
+     *
+     * @param behaviour the panel behavior to display
+     */
     public BasicPanelScreen(T behaviour) {
         this(behaviour.getDisplayName(), behaviour);
     }
 
+    /**
+     * Constructs a new screen with a custom title and panel behavior.
+     *
+     * @param component the title component to display
+     * @param behaviour the panel behavior to display
+     */
     public BasicPanelScreen(Component component, T behaviour) {
         super(component);
         this.behaviour = behaviour;
     }
 
+    /**
+     * Returns the width of the screen window.
+     * Override this to provide a custom width.
+     *
+     * @return the window width in pixels
+     */
     public int getWindowWidth() {
         return 0;
     }
 
+    /**
+     * Returns the height of the screen window.
+     * Override this to provide a custom height.
+     *
+     * @return the window height in pixels
+     */
     public int getWindowHeight() {
         return 0;
     }
 
+    /**
+     * @return The texture to render background
+     * */
+    public ResourceLocation getBackgroundTexture() {
+        return TEXTURE;
+    }
+
+    /**
+     * Initializes the screen and adds standard GUI buttons.
+     * Buttons include confirm, delete, add input, and relocate.
+     */
     @Override
     protected void init() {
         setWindowSize(getWindowWidth() + 106, getWindowHeight() + 46);
@@ -92,31 +137,44 @@ public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends Abstract
         addRenderableWidget(relocateButton);
     }
 
+    /**
+     * Callback invoked when the confirmation button is pressed.
+     * Closes the screen and optionally sends updates to the server.
+     */
     public void onConfirm() {
         assert minecraft != null;
         minecraft.setScreen(null);
     }
 
+    /**
+     * Renders the GUI window including the background, borders, and item preview.
+     *
+     * @param graphics the GUI graphics context
+     * @param mouseX the current mouse X position
+     * @param mouseY the current mouse Y position
+     * @param partialTicks the partial tick time
+     */
     @Override
     protected void renderWindow(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         int x = guiLeft;
         int y = guiTop;
+        ResourceLocation bg = getBackgroundTexture();
         graphics.drawCenteredString(font, title, x+windowWidth/2, y + 4, 0x3D3C48);
-        graphics.blit(TEXTURE,x, y, 0, 0, 53, 16);
-        graphics.blit(TEXTURE,x+windowWidth-106+53, y, 139, 0, 53, 16);
+        graphics.blit(bg,x, y, 0, 0, 53, 16);
+        graphics.blit(bg,x+windowWidth-106+53, y, 139, 0, 53, 16);
 
-        graphics.blit(TEXTURE,x, y+windowHeight-46+15, 0, 56, 53, 32);
-        graphics.blit(TEXTURE,x+windowWidth-106+53, y+windowHeight-46+15, 139, 56, 60, 32);
+        graphics.blit(bg,x, y+windowHeight-46+15, 0, 56, 53, 32);
+        graphics.blit(bg,x+windowWidth-106+53, y+windowHeight-46+15, 139, 56, 60, 32);
 
         if(windowWidth > 106) {
             int r = windowWidth-106;
             int r1 = r-3;
             int step = 0;
-            if(r > 1) graphics.blit(TEXTURE,x+windowWidth-106+52, y+windowHeight-46+15,138,56,1,32);
-            graphics.blit(TEXTURE, x+53,y+windowHeight-46+15,53,56,2,32);
+            if(r > 1) graphics.blit(bg,x+windowWidth-106+52, y+windowHeight-46+15,138,56,1,32);
+            graphics.blit(bg, x+53,y+windowHeight-46+15,53,56,2,32);
             while(r > 0 || r1 > 0) {
-                if(r>0)graphics.blit(TEXTURE, x + 53 + step*86, y, 53, 0, Math.min(r, 86), 16);
-                if(r1>0)graphics.blit(TEXTURE,x+55+step*83,y+windowHeight-46+15,55,56,Math.min(r1,83),32);
+                if(r>0)graphics.blit(bg, x + 53 + step*86, y, 53, 0, Math.min(r, 86), 16);
+                if(r1>0)graphics.blit(bg,x+55+step*83,y+windowHeight-46+15,55,56,Math.min(r1,83),32);
                 step++;
                 r-=86;
                 r1-=83;
@@ -126,25 +184,25 @@ public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends Abstract
         if(windowHeight > 47) {
             int r = windowHeight-47;
             int step = 0;
-            graphics.blit(TEXTURE,x,y+16,0,16,53,Math.min(r, 40));
-            graphics.blit(TEXTURE,x+windowWidth-106+53,y+16,139,16,53,Math.min(r, 40));
+            graphics.blit(bg,x,y+16,0,16,53,Math.min(r, 40));
+            graphics.blit(bg,x+windowWidth-106+53,y+16,139,16,53,Math.min(r, 40));
             if(windowWidth > 106) {
                 int r1 = windowWidth-106;
                 int step1 = 0;
                 while(r1>0) {
-                    graphics.blit(TEXTURE, x + 53 + step1*86, y+16, 53, 16, Math.min(r1, 86), Math.min(r, 40));
+                    graphics.blit(bg, x + 53 + step1*86, y+16, 53, 16, Math.min(r1, 86), Math.min(r, 40));
                     step1++;
                     r1-=86;
                 }
             }
             r-=40;
             while(r>0) {
-                graphics.blit(TEXTURE,x,y+56+step*36,0,20,53,Math.min(r, 36));
-                graphics.blit(TEXTURE,x+windowWidth-106+53,y+56+step*36,139,20,53,Math.min(r, 36));
+                graphics.blit(bg,x,y+56+step*36,0,20,53,Math.min(r, 36));
+                graphics.blit(bg,x+windowWidth-106+53,y+56+step*36,139,20,53,Math.min(r, 36));
                 int r1 = windowWidth-106;
                 int step1 = 0;
                 while(r1>0) {
-                    graphics.blit(TEXTURE, x + 53 + step1*86, y+56+step*36, 53, 20, Math.min(r1, 86), Math.min(r, 36));
+                    graphics.blit(bg, x + 53 + step1*86, y+56+step*36, 53, 20, Math.min(r1, 86), Math.min(r, 36));
                     step1++;
                     r1-=86;
                 }
@@ -159,13 +217,23 @@ public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends Abstract
                 .render(graphics, x + windowWidth, y+windowHeight-48);
     }
 
+    /**
+     * Called when the screen is removed.
+     * Sends any pending configuration updates to the server before closing.
+     */
     @Override
     public void removed() {
         sendIt(null);
         super.removed();
     }
 
-    //Add connection removal option?
+    /**
+     * Sends the panel configuration to the server.
+     *
+     * @param toRemove optional panel position to remove
+     */
+    //TODO: It would be great if, along with modifying the original mod's behaviour,
+    // we could allow to disconnect single connections instead of all
     private void sendIt(@SuppressWarnings("SameParameterValue") @Nullable FactoryPanelPosition toRemove) {
         FactoryPanelPosition pos = behaviour.getPanelPosition();
         FactoryPanelConfigurationPacket packet = new FactoryPanelConfigurationPacket(

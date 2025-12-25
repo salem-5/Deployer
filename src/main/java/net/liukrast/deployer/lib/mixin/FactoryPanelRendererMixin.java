@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(FactoryPanelRenderer.class)
 public class FactoryPanelRendererMixin {
 
-    /* Allows abstract panels to have their own render system + decides whether a bulb should be rendered or not */
+    /* Allows abstract panels to have their own render system and decides whether a bulb should be rendered or not */
     @ModifyExpressionValue(
             method = "renderSafe(Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBlockEntity;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;II)V",
             at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBehaviour;getAmount()I")
