@@ -1,4 +1,4 @@
-package net.liukrast.fluid.content;
+package net.liukrast.fluid.content.fluid;
 
 import net.liukrast.deployer.lib.logistics.packager.AbstractInventorySummary;
 import net.liukrast.fluid.registry.RegisterStockInventoryTypes;

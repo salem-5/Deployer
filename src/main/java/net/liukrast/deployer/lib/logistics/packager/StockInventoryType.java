@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import com.simibubi.create.api.registry.SimpleRegistry;
 import com.simibubi.create.content.logistics.filter.FilterItemStack;
 import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestScreen;
+import io.netty.buffer.ByteBuf;
 import net.createmod.catnip.data.Couple;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
 import net.liukrast.deployer.lib.logistics.packagerLink.GenericRequestPromise;
@@ -13,6 +14,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
@@ -42,7 +44,7 @@ public abstract class StockInventoryType<K,V,H> {
 
     public interface IValueHandler<K,V,H> {
         Codec<V> codec();
-        StreamCodec<RegistryFriendlyByteBuf, V> streamCodec();
+        StreamCodec<? extends ByteBuf, V> streamCodec();
         K fromValue(V key);
         boolean equals(V a, V b);
         boolean test(FilterItemStack filter, Level level, V value);

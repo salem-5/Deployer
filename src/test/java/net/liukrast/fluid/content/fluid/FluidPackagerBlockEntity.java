@@ -1,19 +1,14 @@
-package net.liukrast.fluid.content;
+package net.liukrast.fluid.content.fluid;
 
 import com.simibubi.create.foundation.blockEntity.behaviour.inventory.CapManipulationBehaviourBase;
 import com.simibubi.create.foundation.blockEntity.behaviour.inventory.TankManipulationBehaviour;
 import net.liukrast.deployer.lib.logistics.packager.AbstractPackagerBlockEntity;
 import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
-import net.liukrast.fluid.FluidConstants;
 import net.liukrast.fluid.registry.RegisterBlockEntityTypes;
 import net.liukrast.fluid.registry.RegisterStockInventoryTypes;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 

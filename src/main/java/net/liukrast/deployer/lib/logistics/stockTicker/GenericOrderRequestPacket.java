@@ -8,6 +8,7 @@ import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import com.simibubi.create.foundation.advancement.AllAdvancements;
 import com.simibubi.create.foundation.networking.BlockEntityConfigurationPacket;
+import io.netty.buffer.ByteBuf;
 import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
 import net.liukrast.deployer.lib.mixinExtensions.STBEExtension;
 import net.liukrast.deployer.lib.registry.DeployerPackets;
@@ -55,7 +56,7 @@ public class GenericOrderRequestPacket extends BlockEntityConfigurationPacket<St
                 var type = entry.getKey();
                 toEncodeKeys.add(DeployerRegistries.STOCK_INVENTORY.getKey(entry.getKey()));
                 StreamCodec<RegistryFriendlyByteBuf, Object> vC = (StreamCodec<RegistryFriendlyByteBuf, Object>) type.valueHandler().streamCodec();
-                StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<Object>> codec = GenericOrderContained.simpleStreamCodec(vC);
+                StreamCodec<? super ByteBuf, GenericOrderContained<Object>> codec = GenericOrderContained.simpleStreamCodec(vC);
                 toEncodeValues.add(() -> codec.encode(buf, (GenericOrderContained<Object>) entry.getValue()));
             }
             ResourceLocation.STREAM_CODEC.apply(ByteBufCodecs.list()).encode(buf, toEncodeKeys);

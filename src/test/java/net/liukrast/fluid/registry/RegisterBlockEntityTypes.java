@@ -2,7 +2,7 @@ package net.liukrast.fluid.registry;
 
 import com.simibubi.create.content.logistics.packager.PackagerRenderer;
 import net.liukrast.fluid.FluidConstants;
-import net.liukrast.fluid.content.FluidPackagerBlockEntity;
+import net.liukrast.fluid.content.fluid.FluidPackagerBlockEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;

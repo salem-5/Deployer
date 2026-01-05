@@ -1,4 +1,4 @@
-package net.liukrast.fluid.content;
+package net.liukrast.fluid.content.fluid;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -6,6 +6,7 @@ import com.mojang.serialization.Codec;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.filter.FilterItemStack;
 import com.simibubi.create.foundation.gui.AllGuiTextures;
+import io.netty.buffer.ByteBuf;
 import net.liukrast.deployer.lib.helper.GuiRenderingHelper;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
 import net.liukrast.deployer.lib.logistics.packager.AbstractInventorySummary;
@@ -53,7 +54,7 @@ public class FluidStockInventoryType extends StockInventoryType<Fluid, FluidStac
         }
 
         @Override
-        public StreamCodec<RegistryFriendlyByteBuf, FluidStack> streamCodec() {
+        public StreamCodec<? extends ByteBuf, FluidStack> streamCodec() {
             return FluidStack.STREAM_CODEC;
         }
 

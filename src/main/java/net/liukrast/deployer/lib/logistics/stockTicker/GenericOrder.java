@@ -2,7 +2,9 @@ package net.liukrast.deployer.lib.logistics.stockTicker;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.netty.buffer.ByteBuf;
 import net.createmod.catnip.codecs.stream.CatnipStreamCodecBuilders;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
@@ -20,7 +22,7 @@ public record GenericOrder<V>(List<V> stacks) {
         ).apply(instance, GenericOrder::new));
     }
 
-    public static <V> StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>> simpleStreamCodec(StreamCodec<RegistryFriendlyByteBuf, V> codec) {
+    public static <V> StreamCodec<? extends ByteBuf, GenericOrder<V>> simpleStreamCodec(StreamCodec<? extends ByteBuf, V> codec) {
         return CatnipStreamCodecBuilders.list(codec)
                 .map(GenericOrder::new, GenericOrder::stacks);
     }

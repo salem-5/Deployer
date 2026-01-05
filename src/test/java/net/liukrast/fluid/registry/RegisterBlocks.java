@@ -1,7 +1,7 @@
 package net.liukrast.fluid.registry;
 
 import net.liukrast.fluid.FluidConstants;
-import net.liukrast.fluid.content.FluidPackagerBlock;
+import net.liukrast.fluid.content.fluid.FluidPackagerBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.state.BlockBehaviour;

@@ -1,6 +1,5 @@
 package net.liukrast.fluid;
 
-import com.simibubi.create.AllBlockEntityTypes;
 import net.liukrast.fluid.registry.*;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;

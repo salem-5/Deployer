@@ -2,6 +2,8 @@ package net.liukrast.deployer.lib.logistics.stockTicker;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
@@ -32,7 +34,7 @@ public record GenericOrderContained<V>(GenericOrder<V> orderedStacks) {
         );
     }
 
-    public static <V> StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>> simpleStreamCodec(StreamCodec<RegistryFriendlyByteBuf, V> codec) {
+    public static <V> StreamCodec<? super ByteBuf, GenericOrderContained<V>> simpleStreamCodec(StreamCodec<? extends ByteBuf, V> codec) {
         return StreamCodec.composite(
                 GenericOrder.simpleStreamCodec(codec), GenericOrderContained::orderedStacks,
                 GenericOrderContained::new

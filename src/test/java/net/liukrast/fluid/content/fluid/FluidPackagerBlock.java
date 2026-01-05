@@ -1,4 +1,4 @@
-package net.liukrast.fluid.content;
+package net.liukrast.fluid.content.fluid;
 
 import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
 import net.liukrast.deployer.lib.logistics.packager.AbstractPackagerBlock;
