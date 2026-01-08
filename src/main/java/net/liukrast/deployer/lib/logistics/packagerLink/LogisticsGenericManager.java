@@ -3,6 +3,7 @@ package net.liukrast.deployer.lib.logistics.packagerLink;
 import com.google.common.cache.Cache;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.simibubi.create.api.packager.InventoryIdentifier;
 import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
 import com.simibubi.create.content.logistics.packager.PackagingRequest;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
@@ -42,12 +43,19 @@ public class LogisticsGenericManager {
         try {
             return (accurate ? getAccurateSummaries(type) : getSummaries(type)).get(freqId, () -> {
                 AbstractInventorySummary<K,V> summaryOfLinks = type.networkHandler().create();
+                Set<InventoryIdentifier> processedInventories = new HashSet<>();
                 LogisticallyLinkedBehaviour.getAllPresent(freqId, false)
                         .forEach(link -> {
+                            InventoryIdentifier currentInventoryId = LogisticsManagerAccessor.invokeGetInventoryIdentifierFromLink(link);
+                            if(currentInventoryId != null && !processedInventories.add(currentInventoryId))
+                                return;
+
                             AbstractInventorySummary<K,V> summary = ((LLBExtension)link).deployer$getSummary(type, null);
-                            if (summary != type.networkHandler().empty())
+                            var empty = type.networkHandler().empty();
+                            if (summary != empty) {
                                 summaryOfLinks.contributingLinks++;
-                            summaryOfLinks.add(summary);
+                                summaryOfLinks.add(summary);
+                            }
                         });
                 return summaryOfLinks;
             });

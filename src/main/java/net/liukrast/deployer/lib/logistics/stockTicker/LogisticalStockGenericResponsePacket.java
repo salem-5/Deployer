@@ -16,6 +16,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class LogisticalStockGenericResponsePacket<V> implements ClientboundPacketPayload {
@@ -27,7 +28,12 @@ public class LogisticalStockGenericResponsePacket<V> implements ClientboundPacke
             BlockPos pos = BlockPos.STREAM_CODEC.decode(buf);
             StockInventoryType<?,Object,?> type = (StockInventoryType<?, Object, ?>) DeployerRegistries.STOCK_INVENTORY.get(buf.readResourceLocation());
             assert type != null;
-            List<Object> list = type.valueHandler().streamCodec().apply(ByteBufCodecs.list()).decode(buf);
+            List<Object> list = new ArrayList<>();
+            int size = buf.readVarInt();
+            var codec = type.valueHandler().streamCodec();
+            for(int i = 0; i < size; i++) {
+                list.add(codec.decode(buf));
+            }
             return new LogisticalStockGenericResponsePacket<>(lastPacket, pos, type, list);
         }
 

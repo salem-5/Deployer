@@ -2,16 +2,17 @@ package net.liukrast.deployer.lib.logistics;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
 import net.createmod.catnip.codecs.stream.CatnipStreamCodecBuilders;
+import net.liukrast.deployer.lib.helper.CodecHelpers;
+import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 
 import javax.annotation.Nullable;
-import java.rmi.registry.Registry;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public record GenericPackageOrderData<V>(int orderId, int linkIndex, boolean isFinalLink, int fragmentIndex, boolean isFinal, @Nullable GenericOrderContained<V> orderContext) {
     public GenericPackageOrderData(int orderId, int linkIndex, boolean isFinalLink, int fragmentIndex, boolean isFinal, Optional<GenericOrderContained<V>> orderContext) {
@@ -29,14 +30,14 @@ public record GenericPackageOrderData<V>(int orderId, int linkIndex, boolean isF
         ).apply(instance, GenericPackageOrderData::new));
     }
 
-    public static <B extends ByteBuf, V> StreamCodec<B, GenericPackageOrderData<V>> simpleStreamCodec(StreamCodec<B, V> codec) {
+    public static <V> StreamCodec<RegistryFriendlyByteBuf, GenericPackageOrderData<V>> createStreamCodec(Supplier<StockInventoryType<?, V, ?>> supplierType) {
         return StreamCodec.composite(
                 ByteBufCodecs.INT, GenericPackageOrderData::orderId,
                 ByteBufCodecs.INT, GenericPackageOrderData::linkIndex,
                 ByteBufCodecs.BOOL, GenericPackageOrderData::isFinalLink,
                 ByteBufCodecs.INT, GenericPackageOrderData::fragmentIndex,
                 ByteBufCodecs.BOOL, GenericPackageOrderData::isFinal,
-                CatnipStreamCodecBuilders.nullable(GenericOrderContained.simpleStreamCodec(codec)), GenericPackageOrderData::orderContext,
+                CatnipStreamCodecBuilders.nullable(CodecHelpers.Stream.deferredStreamCodec(() -> supplierType.get().valueHandler().orderContainedStreamCodec())), GenericPackageOrderData::orderContext,
                 GenericPackageOrderData::new
         );
     }

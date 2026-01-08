@@ -5,18 +5,21 @@ import com.mojang.serialization.Codec;
 import com.simibubi.create.api.registry.SimpleRegistry;
 import com.simibubi.create.content.logistics.filter.FilterItemStack;
 import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestScreen;
-import io.netty.buffer.ByteBuf;
 import net.createmod.catnip.data.Couple;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
 import net.liukrast.deployer.lib.logistics.packagerLink.GenericRequestPromise;
+import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrder;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -43,7 +46,15 @@ public abstract class StockInventoryType<K,V,H> {
 
     public interface IValueHandler<K,V,H> {
         Codec<V> codec();
-        StreamCodec<? extends ByteBuf, V> streamCodec();
+        StreamCodec<? super RegistryFriendlyByteBuf, V> streamCodec();
+        //TODO: Cache codec
+        default StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>> orderStreamCodec() {
+            return GenericOrder.simpleStreamCodec(streamCodec());
+        }
+        //TODO: Cache codec
+        default StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>> orderContainedStreamCodec() {
+            return GenericOrderContained.fromOrderStreamCodec(orderStreamCodec());
+        }
         K fromValue(V key);
         boolean equalsIgnoreCount(V a, V b);
         boolean test(FilterItemStack filter, Level level, V value);
@@ -91,15 +102,27 @@ public abstract class StockInventoryType<K,V,H> {
         }
         int clickAmount(boolean ctrlDown, boolean shiftDown, boolean altDown);
         int scrollAmount(boolean ctrlDown, boolean shiftDown, boolean altDown);
+        default boolean shouldRenderSearchBar() {
+            return true;
+        }
         boolean matchesModSearch(V stack, String searchValue);
         boolean matchesTagSearch(V stack, String searchValue);
         boolean matchesSearch(V stack, String searchValue);
         void renderCategory(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, List<V> categoryStacks, List<V> itemsToOrder, AbstractInventorySummary<K, V> forcedEntries, CategoryRenderData data);
         void renderOrderedItems(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, List<V> itemsToOrder, AbstractInventorySummary<K, V> forcedEntries, OrderRenderData data);
-        void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, V entry, Font font);
+        void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, V entry, Font font, boolean isOrder);
         default void setOrder(ItemStack box, int orderId, int linkIndex, boolean isFinalLink, int fragmentIndex, boolean isFinal, @Nullable GenericOrderContained<V> orderContext) {
             GenericPackageOrderData<V> order = new GenericPackageOrderData<>(orderId, linkIndex, isFinalLink, fragmentIndex, isFinal, orderContext);
             box.set(packageOrderData(), order);
+        }
+        void appendHoverText(ItemStack stack, Item.TooltipContext tooltipContext, List<Component> tooltipComponents,
+                             TooltipFlag tooltipFlag, H handler);
+        default int getColWidth() {
+            return 20;
+        }
+
+        default int getRowHeight() {
+            return 20;
         }
     }
 

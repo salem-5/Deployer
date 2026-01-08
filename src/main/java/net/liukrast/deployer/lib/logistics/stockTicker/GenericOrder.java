@@ -9,6 +9,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public record GenericOrder<V>(List<V> stacks) {
@@ -23,8 +24,23 @@ public record GenericOrder<V>(List<V> stacks) {
         ).apply(instance, GenericOrder::new));
     }
 
-    public static <B extends ByteBuf, V> StreamCodec<B, GenericOrder<V>> simpleStreamCodec(StreamCodec<B, V> codec) {
-        return CatnipStreamCodecBuilders.list(codec)
-                .map(GenericOrder::new, GenericOrder::stacks);
+    public static <V> StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>> simpleStreamCodec(StreamCodec<? super RegistryFriendlyByteBuf, V> codec) {
+        return StreamCodec.of(
+                (buf, val) -> {
+                    buf.writeVarInt(val.stacks.size());
+                    for(V v : val.stacks) {
+                        codec.encode(buf, v);
+                    }
+                },
+                (buf) -> {
+                    int i = buf.readVarInt();
+                    List<V> list = new ArrayList<>();
+
+                    for(int j = 0; j < i; j++) {
+                        list.add(codec.decode(buf));
+                    }
+                    return new GenericOrder<>(list);
+                }
+        );
     }
 }

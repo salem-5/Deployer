@@ -85,6 +85,7 @@ public abstract class StockTickerBlockEntityMixin extends StockCheckingBlockEnti
 
     @Inject(method = "write", at = @At("TAIL"))
     private void write(CompoundTag tag, HolderLookup.Provider registries, boolean clientPacket, CallbackInfo ci) {
+        if(!clientPacket) return;
         CompoundTag activeLinks = new CompoundTag();
         for(StockInventoryType<?,?,?> type : DeployerRegistries.STOCK_INVENTORY) {
             @SuppressWarnings("DataFlowIssue")

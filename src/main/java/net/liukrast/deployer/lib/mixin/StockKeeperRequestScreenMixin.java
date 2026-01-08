@@ -3,6 +3,7 @@ package net.liukrast.deployer.lib.mixin;
 import com.llamalad7.mixinextras.expression.Definition;
 import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -12,13 +13,12 @@ import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.content.logistics.AddressEditBox;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.box.PackageStyles;
-import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
-import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestMenu;
-import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestScreen;
-import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
+import com.simibubi.create.content.logistics.stockTicker.*;
 import com.simibubi.create.foundation.gui.AllGuiTextures;
 import com.simibubi.create.foundation.gui.menu.AbstractSimiContainerScreen;
+import net.createmod.catnip.animation.LerpedFloat;
 import net.createmod.catnip.data.Couple;
+import net.createmod.catnip.data.Pair;
 import net.createmod.catnip.platform.CatnipServices;
 import net.createmod.catnip.platform.services.NetworkHelper;
 import net.liukrast.deployer.lib.DeployerConstants;
@@ -29,7 +29,9 @@ import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderRequestPacket
 import net.liukrast.deployer.lib.mixinExtensions.STBEExtension;
 import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -37,11 +39,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.*;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -56,12 +57,9 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     StockTickerBlockEntity blockEntity;
     @Shadow
     public List<StockKeeperRequestScreen.CategoryEntry> categories;
-    @Shadow
-    @Final
-    int rowHeight;
-    @Shadow
-    @Final
-    int cols;
+
+    @Unique
+    int deployer$cols;
 
     @Shadow
     protected abstract void clampScrollBar();
@@ -78,9 +76,11 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     int itemsY;
     @Shadow
     int windowHeight;
-    @Shadow
-    @Final
-    int colWidth;
+
+    @Unique
+    private int deployer$colWidth = 20;
+    @Unique
+    private int deployer$rowHeight = 20;
 
     @Shadow
     protected abstract void refreshSearchResults(boolean scrollBackUp);
@@ -94,6 +94,24 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     @Shadow
     boolean encodeRequester;
 
+    @Shadow
+    public EditBox searchBox;
+
+    @Shadow
+    public abstract boolean isSchematicListMode();
+
+    @Shadow
+    @Final
+    Couple<Integer> noneHovered;
+    @Shadow
+    int windowWidth;
+    @Shadow
+    public List<CraftableBigItemStack> recipesToOrder;
+    @Shadow
+    public LerpedFloat itemScroll;
+    @Shadow
+    @Final
+    private int rowHeight;
     @Unique
     private static final ResourceLocation deployer$TEXTURE = DeployerConstants.id("textures/gui/stock_keeper_tabs.png");
     @Unique
@@ -146,7 +164,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     }
 
     @Inject(method = "refreshSearchResults", at = @At(value = "INVOKE", target = "Ljava/lang/String;isBlank()Z"), cancellable = true)
-    private void refreshSearchResults(boolean scrollBackUp, CallbackInfo ci, @Local String valueWithPrefix, @Local(ordinal = 1) LocalBooleanRef anyItemsInCategory) {
+    private void refreshSearchResults(boolean scrollBackUp, CallbackInfo ci, @Local(name = "valueWithPrefix") String valueWithPrefix, @Local(name = "anyItemsInCategory") LocalBooleanRef anyItemsInCategory) {
         if (deployer$selected == null) return;
         var currentItemSource = deployer$currentItemSource.get(deployer$selected);
         if (valueWithPrefix.isBlank()) {
@@ -157,9 +175,9 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
                 List<?> displayedItemsInCategory = deployer$displayedItems.get(deployer$selected).get(categoryIndex);
                 if (displayedItemsInCategory.isEmpty()) continue;
                 if (categoryIndex < currentItemSource.size() - 1) anyItemsInCategory.set(true);
-                categoryY += rowHeight;
+                categoryY += deployer$rowHeight;
                 if (!((StockKeeperRequestScreen$CategoryEntryAccessor) categories.get(categoryIndex)).getHidden())
-                    categoryY += (int) (Math.ceil(displayedItemsInCategory.size() / (float) cols) * rowHeight);
+                    categoryY += (int) (Math.ceil(displayedItemsInCategory.size() / (float) deployer$cols) * deployer$rowHeight);
             }
 
             if (!anyItemsInCategory.get())
@@ -184,7 +202,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     }
 
     @Inject(method = "refreshSearchResults", at = @At(value = "INVOKE", target = "Ljava/util/List;forEach(Ljava/util/function/Consumer;)V", shift = At.Shift.AFTER))
-    private void refreshSearchResults$1(boolean scrollBackUp, CallbackInfo ci, @Local(ordinal = 2) boolean modSearch, @Local(ordinal = 3) boolean tagSearch, @Local(ordinal = 1) String value, @Local(ordinal = 1) LocalBooleanRef anyItemsInCategory) {
+    private void refreshSearchResults$1(boolean scrollBackUp, CallbackInfo ci, @Local(name = "modSearch") boolean modSearch, @Local(name = "tagSearch") boolean tagSearch, @Local(name = "value") String value, @Local(name = "anyItemsInCategory") LocalBooleanRef anyItemsInCategory) {
         if (deployer$selected == null) return;
         deployer$refreshSearchResults$internal(deployer$selected, modSearch, tagSearch, value, anyItemsInCategory);
     }
@@ -225,15 +243,15 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
             if (categoryIndex < currentItemSource.size() - 1)
                 anyItemsInCategory.set(true);
 
-            categoryY += rowHeight;
+            categoryY += deployer$rowHeight;
 
             if (!((StockKeeperRequestScreen$CategoryEntryAccessor) categories.get(categoryIndex)).getHidden())
-                categoryY += (int) (Math.ceil(displayedItemsInCategory.size() / (float) cols) * rowHeight);
+                categoryY += (int) (Math.ceil(displayedItemsInCategory.size() / (float) deployer$cols) * deployer$rowHeight);
         }
     }
 
     /* CONTAINER TICK */
-    @ModifyVariable(method = "containerTick", at = @At(value = "STORE"))
+    @ModifyVariable(method = "containerTick", at = @At(value = "STORE"), name = "allEmpty")
     private boolean containerTick(boolean allEmpty) {
         if (deployer$selected == null) return allEmpty;
         return deployer$displayedItems.get(deployer$selected).stream().allMatch(List::isEmpty);
@@ -300,13 +318,47 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     /* RENDER BACKGROUND */
 
     /* RENDER BG */
+    @Inject(method = "renderBg", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/foundation/gui/AllGuiTextures;render(Lnet/minecraft/client/gui/GuiGraphics;II)V", ordinal = 0, shift = At.Shift.AFTER))
+    private void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, CallbackInfo ci, @Local(name = "x") int x, @Local(name = "y") int y) {
+        if (deployer$selected == null) return;
+        if (!deployer$selected.packageHandler().shouldRenderSearchBar())
+            graphics.blit(deployer$TEXTURE, x, y + 17, 15, 129, 226, 19);
+    }
+
+    @WrapWithCondition(method = "renderBg", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/foundation/gui/AllGuiTextures;render(Lnet/minecraft/client/gui/GuiGraphics;II)V", ordinal = 7))
+    private boolean renderBg(AllGuiTextures instance, GuiGraphics graphics, int x, int y) {
+        if (deployer$selected == null) return true;
+        return deployer$selected.packageHandler().shouldRenderSearchBar();
+    }
+
+    @WrapWithCondition(method = "renderBg", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/EditBox;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"))
+    private boolean renderBg(EditBox instance, GuiGraphics graphics, int i, int j, float v) {
+        if (deployer$selected == null) return true;
+        return deployer$selected.packageHandler().shouldRenderSearchBar();
+    }
+
+    @ModifyExpressionValue(method = "renderBg", at = @At(value = "INVOKE", target = "Ljava/lang/String;isBlank()Z"))
+    private boolean renderBg(boolean original) {
+        if (deployer$selected == null) return original;
+        return original && deployer$selected.packageHandler().shouldRenderSearchBar();
+    }
+
+    /**
+     * Reason: Remove items from rendering when you're in a different category (e.g., fluids)
+     * */
     @ModifyExpressionValue(method = "renderBg", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;displayedItems:Ljava/util/List;"))
     private List<List<BigItemStack>> renderBg(List<List<BigItemStack>> original) {
         return deployer$selected == null ? original : Collections.emptyList();
     }
 
-    @SuppressWarnings({"UnresolvedLocalCapture", "LocalMayBeArgsOnly"})
-    @Inject(method = "renderBg", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;isAdmin:Z"))
+    @Inject(method = "renderBg", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/foundation/gui/AllGuiTextures;render(Lnet/minecraft/client/gui/GuiGraphics;II)V", ordinal = 2, shift = At.Shift.AFTER))
+    private void renderBg$1(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, CallbackInfo ci, @Local(name = "x") int x, @Local(name = "y") int y) {
+        if (deployer$selected == null) return;
+        graphics.blit(deployer$TEXTURE, x, y, 15, 80, 226, 37);
+    }
+
+    @SuppressWarnings({"UnresolvedLocalCapture"})
+    @Inject(method = "renderBg", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;isAdmin:Z", opcode = Opcodes.GETFIELD))
     private void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, CallbackInfo ci, @Local PoseStack ms, @Local(ordinal = 2) int x, @Local(ordinal = 3) int y, @Local(ordinal = 1) float currentScroll, @Local Couple<Integer> hoveredSlot) {
         if (deployer$selected == null) return;
         deployer$renderBg$internal(graphics, partialTicks, mouseX, mouseY, ms, currentScroll, x, y, hoveredSlot, deployer$selected);
@@ -333,9 +385,8 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
                 if (categoryEntry.getHidden())
                     continue;
             }
-            var data = new StockInventoryType.CategoryRenderData(x, y, itemsX, itemsY, categoryY, rowHeight, colWidth, cols, categories, currentScroll, windowHeight, hoveredSlot, categoryIndex, ms, font);
+            var data = new StockInventoryType.CategoryRenderData(x, y, itemsX, itemsY, categoryY, deployer$rowHeight, deployer$colWidth, deployer$cols, categories, currentScroll, windowHeight, hoveredSlot, categoryIndex, ms, font);
             stockInventoryType.packageHandler().renderCategory(graphics, partialTicks, mouseX, mouseY, category, itemsToOrder, forcedEntries, data);
-
         }
     }
 
@@ -350,7 +401,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     @Unique
     private <K, V, H> void deployer$renderBg$internal(StockInventoryType<K, V, H> type, GuiGraphics graphics, float partialTicks, int mouseX, int mouseY, int x, int y, PoseStack ms, Couple<Integer> hoveredSlot) {
         type.packageHandler().renderOrderedItems(graphics, partialTicks, mouseX, mouseY, (List<V>) deployer$itemsToOrder.get(type), (AbstractInventorySummary<K, V>) deployer$forcedEntries.get(type),
-                new StockInventoryType.OrderRenderData(x, y, itemsX, itemsY, rowHeight, colWidth, orderY, cols, hoveredSlot, ms)
+                new StockInventoryType.OrderRenderData(x, y, itemsX, itemsY, deployer$rowHeight, deployer$colWidth, orderY, deployer$cols, hoveredSlot, ms)
         );
     }
 
@@ -381,7 +432,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     @Definition(id = "noneHovered", field = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;noneHovered:Lnet/createmod/catnip/data/Couple;")
     @Expression("hoveredSlot != this.noneHovered")
     @ModifyExpressionValue(method = "renderForeground", at = @At("MIXINEXTRAS:EXPRESSION"))
-    private boolean renderForeground(boolean original, @SuppressWarnings("LocalMayBeArgsOnly") @Local Couple<Integer> hoveredSlot, @Local(argsOnly = true) GuiGraphics graphics, @Local(argsOnly = true, ordinal = 0) int mouseX, @Local(argsOnly = true, ordinal = 1) int mouseY, @Local(argsOnly = true) float partialTicks) {
+    private boolean renderForeground(boolean original, @Local(name = "hoveredSlot") Couple<Integer> hoveredSlot, @Local(argsOnly = true) GuiGraphics graphics, @Local(argsOnly = true, ordinal = 0) int mouseX, @Local(argsOnly = true, ordinal = 1) int mouseY, @Local(argsOnly = true) float partialTicks) {
         if (deployer$selected == null || hoveredSlot.getFirst() == -2) return original;
         if (original)
             deployer$renderForeground$internal(deployer$selected, hoveredSlot, graphics, mouseX, mouseY, partialTicks);
@@ -394,7 +445,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         int slot = hoveredSlot.getSecond();
         boolean orderHovered = hoveredSlot.getFirst() == -1;
         V entry = orderHovered ? (V) deployer$itemsToOrder.get(type).get(slot) : (V) deployer$displayedItems.get(type).get(hoveredSlot.getFirst()).get(slot);
-        type.packageHandler().renderTooltip(graphics, mouseX, mouseY, partialTicks, entry, font);
+        type.packageHandler().renderTooltip(graphics, mouseX, mouseY, partialTicks, entry, font, orderHovered);
     }
 
     /* RENDER ITEM ENTRY */
@@ -436,6 +487,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     }
 
     /* GET HOVERED SLOT */
+    @Deprecated
     @Definition(id = "size", method = "Ljava/util/List;size()I")
     @Definition(id = "itemsToOrder", field = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;itemsToOrder:Ljava/util/List;")
     @Expression("this.itemsToOrder.size()")
@@ -444,6 +496,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         return deployer$selected == null ? original : deployer$itemsToOrder.get(deployer$selected).size();
     }
 
+    @Deprecated
     @Definition(id = "displayedItems", field = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;displayedItems:Ljava/util/List;")
     @Definition(id = "size", method = "Ljava/util/List;size()I")
     @Expression("this.displayedItems.size()")
@@ -452,20 +505,118 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         return deployer$selected == null ? original : deployer$displayedItems.get(deployer$selected).size();
     }
 
+    @Deprecated
     @WrapOperation(method = "getHoveredSlot", at = @At(value = "INVOKE", target = "Ljava/util/List;get(I)Ljava/lang/Object;", ordinal = 1))
     private Object getHoveredSlot$2(List<Object> instance, int i, Operation<Object> original, @Local(ordinal = 3) int categoryIndex) {
         return deployer$selected == null ? original.call(instance, i) : deployer$displayedItems.get(deployer$selected).get(categoryIndex);
     }
 
+
+    /**
+     * We redirect the function only when a custom stock inventory type is selected, so we avoid breaking other mods
+     * */
+    @Inject(method = "getHoveredSlot", at = @At("HEAD"), cancellable = true)
+    private void getHoveredSlot(int x, int y, CallbackInfoReturnable<Couple<Integer>> cir) {
+        if(deployer$selected == null) return;
+
+        x += 1;
+        if (x < itemsX || x >= itemsX + deployer$cols * deployer$colWidth || isSchematicListMode()) {
+            cir.setReturnValue(noneHovered);
+            cir.cancel();
+            return;
+        }
+
+        // Ordered item is hovered
+        if (y >= orderY && y < orderY + rowHeight) { //We should not get more than 20 here
+            int col = (x - itemsX) / deployer$colWidth;
+            if (deployer$itemsToOrder.get(deployer$selected).size() <= col || col < 0) {
+                cir.setReturnValue(noneHovered);
+                cir.cancel();
+                return;
+            }
+            cir.setReturnValue(Couple.create(-1, col));
+            cir.cancel();
+            return;
+        }
+
+        // Ordered recipe is hovered
+        if (y >= orderY - 31 && y < orderY - 31 + deployer$rowHeight) {
+            int jeiX = getGuiLeft() + (windowWidth - deployer$colWidth * recipesToOrder.size()) / 2 + 1;
+            int col = Mth.floorDiv(x - jeiX, deployer$colWidth);
+            if (recipesToOrder.size() > col && col >= 0) {
+                cir.setReturnValue(Couple.create(-2, col));
+                cir.cancel();
+                return;
+            }
+        }
+
+        if (y < getGuiTop() + 16 || y > getGuiTop() + windowHeight - 80) {
+            cir.setReturnValue(noneHovered);
+            cir.cancel();
+            return;
+        }
+        if (!itemScroll.settled()) {
+            cir.setReturnValue(noneHovered);
+            cir.cancel();
+            return;
+        }
+
+        int localY = y - itemsY;
+
+        for (int categoryIndex = 0; categoryIndex < deployer$displayedItems.get(deployer$selected).size(); categoryIndex++) {
+            StockKeeperRequestScreen.CategoryEntry entry = categories.isEmpty() ? new StockKeeperRequestScreen.CategoryEntry(0, "", 0) : categories.get(categoryIndex);
+            var ae = ((StockKeeperRequestScreen$CategoryEntryAccessor)entry);
+            if (ae.getHidden())
+                continue;
+
+            int row = Mth.floor((localY - (categories.isEmpty() ? 4 : deployer$rowHeight) - ae.getY()) / (float) deployer$rowHeight
+                    + itemScroll.getChaseTarget());
+
+            int col = (x - itemsX) / deployer$colWidth;
+            int slot = row * deployer$cols + col;
+
+            if (slot < 0) {
+                cir.setReturnValue(noneHovered);
+                cir.cancel();
+                return;
+            }
+            if (deployer$displayedItems.get(deployer$selected).get(categoryIndex)
+                    .size() <= slot)
+                continue;
+
+            cir.setReturnValue(Couple.create(categoryIndex, slot));
+            cir.cancel();
+            return;
+        }
+
+        cir.setReturnValue(noneHovered);
+        cir.cancel();
+        return;
+    }
+
+    /* GET HOVERED INGREDIENT */
+    /**
+     * Completely ignored if you're not in the items TAB.
+     * This is used for JEI compat so might need a future implementation for fluid stacks
+     *
+     */
+    @Inject(method = "getHoveredIngredient", at = @At("HEAD"), cancellable = true)
+    private void getHoveredIngredient(int mouseX, int mouseY, CallbackInfoReturnable<Optional<Pair<ItemStack, Rect2i>>> cir) {
+        if(deployer$selected != null) {
+            cir.setReturnValue(Optional.empty());
+            cir.cancel();
+        }
+    }
+
     /* IS CONFIRM HOVERED */
 
-    /* GET TROUBLESHOOTING MESSAGE */
-    @ModifyExpressionValue(method = "getTroubleshootingMessage", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;currentItemSource:Ljava/util/List;"))
+    /* TROUBLESHOOTING MESSAGE */
+    @ModifyExpressionValue(method = "getTroubleshootingMessage", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/stockTicker/StockKeeperRequestScreen;currentItemSource:Ljava/util/List;", opcode = Opcodes.GETFIELD))
     private List<List<?>> getTroubleShootingMessage(List<List<?>> original) {
         return deployer$selected == null ? original : deployer$currentItemSource.get(deployer$selected);
     }
 
-    @ModifyExpressionValue(method = "getTroubleshootingMessage", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/stockTicker/StockTickerBlockEntity;activeLinks:I"))
+    @ModifyExpressionValue(method = "getTroubleshootingMessage", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/stockTicker/StockTickerBlockEntity;activeLinks:I", opcode = Opcodes.GETFIELD))
     private int getTroubleShootingMessage(int original) {
         return deployer$selected == null ? original : ((STBEExtension) blockEntity).deployer$getMappedInfo().getActiveLinks(deployer$selected);
     }
@@ -479,6 +630,11 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         if (mouseX > x - 8 && mouseX < x + 12 && mouseY > y + 20 && mouseY < y + 40) {
             deployer$selected = null;
             init();
+            searchBox.active = true;
+            searchBox.visible = true;
+            this.deployer$colWidth = 20;
+            this.deployer$rowHeight = 20;
+            this.deployer$cols = 9;
             cir.cancel();
             return;
         }
@@ -489,6 +645,12 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
             if (mouseX > x - 8 && mouseX < x + 12 && mouseY > y + 40 + i * 20 && mouseY < y + 60 + i * 20) {
                 deployer$selected = type;
                 init();
+                boolean search = deployer$selected.packageHandler().shouldRenderSearchBar();
+                searchBox.active = search;
+                searchBox.visible = search;
+                this.deployer$colWidth = deployer$selected.packageHandler().getColWidth();
+                this.deployer$rowHeight = deployer$selected.packageHandler().getRowHeight();
+                this.deployer$cols = 20*9/deployer$colWidth;
                 cir.cancel();
                 return;
             }
@@ -504,7 +666,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
     @WrapOperation(method = "mouseClicked", at = @At(value = "INVOKE", target = "Ljava/util/List;get(I)Ljava/lang/Object;", ordinal = 1))
     private Object mouseClicked$1(List<?> instance, int i, Operation<Object> original, @Local(ordinal = 3) int categoryIndex) {
-        if(deployer$selected != null) return deployer$displayedItems.get(deployer$selected).get(categoryIndex);
+        if (deployer$selected != null) return deployer$displayedItems.get(deployer$selected).get(categoryIndex);
         return original.call(instance, i);
     }
 
@@ -521,7 +683,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     private <K, V, H> void deployer$mouseClicked$internal(StockInventoryType<K, V, H> type, Couple<Integer> hoveredSlot, boolean rmb) {
         boolean orderClicked = hoveredSlot.getFirst() == -1;
         boolean recipeClicked = hoveredSlot.getFirst() == -2;
-        if(recipeClicked) return;
+        if (recipeClicked) return;
         var itemsToOrder = (List<V>) deployer$itemsToOrder.get(type);
         V entry = orderClicked ? itemsToOrder.get(hoveredSlot.getSecond())
                 : (V) deployer$displayedItems.get(type).get(hoveredSlot.getFirst()).get(hoveredSlot.getSecond());
@@ -530,7 +692,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
             int transfer = type.packageHandler().clickAmount(Screen.hasControlDown(), Screen.hasShiftDown(), Screen.hasAltDown());
             V existingOrder = deployer$getOrderForV(type, entry);
             if (existingOrder == null) {
-                if (itemsToOrder.size() >= cols || rmb) {
+                if (itemsToOrder.size() >= deployer$cols || rmb) {
                     break block;
                 }
                 itemsToOrder.add(existingOrder = type.valueHandler().copyWithCount(entry, 0));
@@ -558,9 +720,9 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     /* MOUSE SCROLLED */
     @Inject(method = "mouseScrolled", at = @At(value = "INVOKE", target = "Lnet/createmod/catnip/data/Couple;getFirst()Ljava/lang/Object;", ordinal = 2, shift = At.Shift.AFTER), cancellable = true)
     private void mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY, CallbackInfoReturnable<Boolean> cir, @Local Couple<Integer> hoveredSlot, @Local(ordinal = 1) boolean orderClicked) {
-        if(deployer$selected == null) return;
+        if (deployer$selected == null) return;
         boolean recipeClicked = hoveredSlot.getFirst() == -2;
-        if(recipeClicked) return;
+        if (recipeClicked) return;
         deployer$mouseScrolled$internal(deployer$selected, orderClicked, /*NOTE*/false, hoveredSlot, scrollY);
         cir.setReturnValue(true);
         cir.cancel();
@@ -580,7 +742,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
         V existingOrder = orderClicked ? entry : deployer$getOrderForV(type, entry);
         if (existingOrder == null) {
-            if (itemsToOrder.size() >= cols || remove)
+            if (itemsToOrder.size() >= deployer$cols || remove)
                 return;
             itemsToOrder.add(existingOrder = type.valueHandler().copyWithCount(entry, 0)); //TODO: Is this unsafe?
             playUiSound(SoundEvents.WOOL_STEP, 0.75f, 1.2f);
@@ -626,10 +788,10 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
     @WrapOperation(method = "sendIt", at = @At(value = "INVOKE", target = "Lnet/createmod/catnip/platform/services/NetworkHelper;sendToServer(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload;)V"))
     private void sendIt(NetworkHelper instance, CustomPacketPayload customPacketPayload, Operation<Void> original, @Local PackageOrderWithCrafts order) {
-        Map<StockInventoryType<?,?,?>, GenericOrderContained<?>> map = new HashMap<>();
+        Map<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> map = new HashMap<>();
         for (var type : DeployerRegistries.STOCK_INVENTORY) {
             var v = deployer$sendIt$internal(type);
-            if(v == null) continue;
+            if (v == null) continue;
             map.put(type, v);
         }
 

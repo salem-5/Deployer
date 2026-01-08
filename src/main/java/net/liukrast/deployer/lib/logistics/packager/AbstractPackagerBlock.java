@@ -2,8 +2,10 @@ package net.liukrast.deployer.lib.logistics.packager;
 
 import com.simibubi.create.content.logistics.packager.PackagerBlock;
 import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
+import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -35,52 +37,14 @@ public abstract class AbstractPackagerBlock extends PackagerBlock {
      * */
     public abstract boolean isSideValid(BlockEntity be);
 
-    @SuppressWarnings("unused")
-    public static class Simple extends AbstractPackagerBlock {
-        private final Supplier<BlockEntityType<? extends PackagerBlockEntity>> blockEntityTypeSupplier;
-        private final Predicate<BlockEntity> sidePredicate;
-
-        /**
-         * Creates a simple implementation of an {@link AbstractPackagerBlock}.
-         * Initializes the block with the given properties, a supplier for its block entity type,
-         * and a predicate used to determine whether a neighboring block entity is a valid side.
-         * The predicate will be evaluated during placement to decide the automatic facing direction of the packager.
-         *
-         * @param properties
-         *     The block properties used by this packager block.
-         *
-         * @param blockEntityTypeSupplier
-         *     A supplier that provides the {@link BlockEntityType} associated with this block.
-         *
-         * @param sidePredicate
-         *     A predicate that determines whether a given block entity represents a valid side for orientation.
-         */
-        public Simple(Properties properties, Supplier<BlockEntityType<? extends PackagerBlockEntity>> blockEntityTypeSupplier, Predicate<BlockEntity> sidePredicate) {
-            super(properties);
-            this.blockEntityTypeSupplier = blockEntityTypeSupplier;
-            this.sidePredicate = sidePredicate;
-        }
-
-        /**
-         * @return The Blockentity type for this block
-         * */
-        @Override
-        public BlockEntityType<? extends PackagerBlockEntity> getBlockEntityType() {
-            return blockEntityTypeSupplier.get();
-        }
-
-        /**
-         * When you place a packager,
-         * it will try automatically to set his direction looking towards a chest,
-         * or any other container.<br><br>
-         * This function will be called for every direction (if there is a block entity on that face),
-         * and you can decide whether the side is valid to rotate the custom packager or not
-         * @param be The block entity to check
-         * @return Whether the side is valid to rotate the packager's face.
-         * */
-        @Override
-        public boolean isSideValid(BlockEntity be) {
-            return sidePredicate.test(be);
-        }
+    /**
+     * Defines the tray model for your packager.
+     * @param blockState Context to change model based on the state
+     * @param original The default packager partial model, which is always {@link com.simibubi.create.AllPartialModels#PACKAGER_TRAY_DEFRAG}
+     * @return The tray model you want to use
+     * Also see: {@link AbstractPackagerBlockEntity#getHatchModel(boolean, PartialModel)}
+     * */
+    public PartialModel getTrayModel(BlockState blockState, PartialModel original) {
+        return original;
     }
 }

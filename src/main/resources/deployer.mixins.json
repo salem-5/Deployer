@@ -29,6 +29,7 @@
 	"PackageRepackageHelperMixin",
 	"PackagerItemHandlerMixin",
 	"PackagerLinkBlockEntityMixin",
+	"PackagerRendererMixin",
 	"PackagingRequestMixin",
 	"RequestPromiseQueueMixin",
 	"StockCheckingBlockEntityMixin",

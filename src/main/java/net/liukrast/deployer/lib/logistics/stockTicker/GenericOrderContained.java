@@ -2,8 +2,6 @@ package net.liukrast.deployer.lib.logistics.stockTicker;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
@@ -34,10 +32,10 @@ public record GenericOrderContained<V>(GenericOrder<V> orderedStacks) {
         );
     }
 
-    //TODO: Porcodio trasformare in un processore con .apply
-    public static <B extends ByteBuf, V> StreamCodec<B, GenericOrderContained<V>> simpleStreamCodec(StreamCodec<B, V> codec) {
+
+    public static <V> StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>> fromOrderStreamCodec(StreamCodec<? super RegistryFriendlyByteBuf, GenericOrder<V>> codec) {
         return StreamCodec.composite(
-                GenericOrder.simpleStreamCodec(codec), GenericOrderContained::orderedStacks,
+                codec, GenericOrderContained::orderedStacks,
                 GenericOrderContained::new
         );
     }

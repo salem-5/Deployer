@@ -8,7 +8,8 @@ public class DeployerPackages {
     private DeployerPackages() {}
 
     public static final List<PackageStyles.PackageStyle> STYLES = List.of(
-            rare("liukrast")
+            rare("liukrast"),
+            rare("swzo")
     );
 
     private static PackageStyles.PackageStyle rare(String name) {

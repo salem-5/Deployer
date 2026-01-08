@@ -16,6 +16,7 @@ import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import com.simibubi.create.foundation.advancement.AllAdvancements;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.inventory.CapManipulationBehaviourBase;
+import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.math.BlockFace;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
@@ -74,7 +75,18 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
     public abstract StockInventoryType<K,V,H> getStockType();
 
     /**
-     * Registers behaviours to the block entity
+     * Defines the tray model for your packager.
+     * @param original The default packager hatch model based on whether it's open or not
+     * @param isHatchOpen Whether the hatch is open or not
+     * @return The hatch model you want to use
+     * Also see: {@link AbstractPackagerBlock#getTrayModel(BlockState, PartialModel)}
+     * */
+    public PartialModel getHatchModel(boolean isHatchOpen, PartialModel original) {
+        return original;
+    }
+
+    /**
+     * Registers behaviors to the block entity
      * */
     @ApiStatus.OverrideOnly
     @Override
@@ -260,7 +272,8 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
                 for (int slot = 0; slot < handler.getSlots(targetInv); slot++) {
                     //noinspection DataFlowIssue
                     int initialCount = requestQueue ? Math.min(handler.maxCountPerSlot(), nextRequest.getCount()) : handler.maxCountPerSlot();
-                    V extracted = handler.extract(targetInv, valueHandler.create(valueHandler.fromValue(handler.getStackInSlot(targetInv, slot)), initialCount), true);
+
+                    V extracted = handler.extract(targetInv, valueHandler.copyWithCount(handler.getStackInSlot(targetInv, slot), initialCount), true);
                     if (valueHandler.isEmpty(extracted))
                         continue;
                     if(requestQueue && !valueHandler.equalsIgnoreCount(extracted, nextRequest.item()))
@@ -271,9 +284,9 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
                         continue;
 
                     anyItemPresent = true;
-                    int leftovers = handler.fill(extractedItems, valueHandler.create(valueHandler.fromValue(extracted), valueHandler.getCount(extracted)), false);
+                    int leftovers = handler.fill(extractedItems, valueHandler.copyWithCount(extracted, valueHandler.getCount(extracted)), false);
                     int transferred = valueHandler.getCount(extracted) -leftovers;
-                    handler.extract(targetInv, valueHandler.create(valueHandler.fromValue(handler.getStackInSlot(targetInv, slot)), transferred), false);
+                    handler.extract(targetInv, valueHandler.copyWithCount(handler.getStackInSlot(targetInv, slot), transferred), false);
 
                     if (!requestQueue) {
                         if (bulky)

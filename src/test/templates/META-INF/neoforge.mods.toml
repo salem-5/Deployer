@@ -2,9 +2,9 @@ modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
 [[mods]]
-modId="package_test"
+modId="repackaged"
 version="1.0.0"
-displayName="Package Test"
+displayName="Create: Repackaged"
 credits="Credits"
 authors="LiukRast"
 description='''A test description'''
@@ -17,19 +17,19 @@ description='''A test description'''
 
 # The coremods config file path is not configurable and is always loaded from META-INF/coremods.json
 
-[[dependencies."package_test"]]
+[[dependencies."repackaged"]]
     modId="neoforge"
     type="required"
     versionRange="[${neo_version},)"
     ordering="NONE"
     side="BOTH"
-[[dependencies."package_test"]]
+[[dependencies."repackaged"]]
     modId="minecraft"
     type="required"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
-[[dependencies."package_test"]]
+[[dependencies."repackaged"]]
     modId="create"
     type="required"
     versionRange="${create_version_range}"

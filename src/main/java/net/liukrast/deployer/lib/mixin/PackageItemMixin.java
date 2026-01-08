@@ -13,7 +13,6 @@ import java.util.List;
 
 @Mixin(PackageItem.class)
 public class PackageItemMixin {
-    @SuppressWarnings("DisallowedTargetInsn")
     @WrapWithCondition(method = "<init>", at = @At(value = "INVOKE", target = "Ljava/util/List;add(Ljava/lang/Object;)Z"))
     private <E> boolean init(List<E> instance, E e) {
         return !(PackageItem.class.cast(this) instanceof GenericPackageItem pack) || pack.cardboard;
