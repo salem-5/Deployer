@@ -42,7 +42,7 @@ public class LogisticsGenericManager {
     public static <K,V,H> AbstractInventorySummary<K,V> getSummaryOfNetwork(StockInventoryType<K,V, H> type, UUID freqId, boolean accurate) {
         try {
             return (accurate ? getAccurateSummaries(type) : getSummaries(type)).get(freqId, () -> {
-                AbstractInventorySummary<K,V> summaryOfLinks = type.networkHandler().create();
+                AbstractInventorySummary<K,V> summaryOfLinks = type.networkHandler().createSummary();
                 Set<InventoryIdentifier> processedInventories = new HashSet<>();
                 LogisticallyLinkedBehaviour.getAllPresent(freqId, false)
                         .forEach(link -> {
@@ -97,16 +97,16 @@ public class LogisticsGenericManager {
      *
      * */
     @SuppressWarnings("unchecked")
-    public static void broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, UUID freqId, LogisticallyLinkedBehaviour.RequestType type, Map<StockInventoryType<?,?,?>, GenericOrderContained<?>> rq, String address) {
+    public static boolean broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, UUID freqId, LogisticallyLinkedBehaviour.RequestType type, Map<StockInventoryType<?,?,?>, GenericOrderContained<?>> rq, String address) {
         if(defaultOrder.isEmpty() && rq.values().stream().allMatch(GenericOrderContained::isEmpty))
-            return;
+            return false;
         Multimap<PackagerBlockEntity, PackagingRequest> requests = LogisticsManager.findPackagersForRequest(freqId, defaultOrder, null, address);
 
 
         // Check if packagers have accumulated too many packages already
         for (PackagerBlockEntity packager : requests.keySet())
             if (packager.isTooBusyFor(type))
-                return;
+                return false;
         var vals = requests.values();
         int id = vals.isEmpty() ? LogisticsManagerAccessor.getR().nextInt() :
                 Optional.ofNullable(vals.iterator().next()).map(PackagingRequest::orderId)
@@ -125,6 +125,7 @@ public class LogisticsGenericManager {
 
         // Actually perform package creation
         LogisticsManager.performPackageRequests(requests);
+        return true;
     }
 
     public static <K,V,H> Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> findPackagersForRequest(StockInventoryType<K,V,H> type, UUID freqId, GenericOrderContained<V> order, @javax.annotation.Nullable IdentifiedContainer<H> ignoredHandler, String address, IntSupplier id) {

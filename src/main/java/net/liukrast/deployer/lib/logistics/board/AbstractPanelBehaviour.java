@@ -469,7 +469,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour {
      * */
     @Override
     public ItemStack getFilter() {
-        return getConnectionValue(DeployerPanelConnections.ITEMSTACK).orElse(ItemStack.EMPTY);
+        return getConnectionValue(DeployerPanelConnections.ITEM_STACK).orElse(ItemStack.EMPTY);
     }
 
     /**

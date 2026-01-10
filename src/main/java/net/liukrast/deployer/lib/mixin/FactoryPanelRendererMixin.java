@@ -66,7 +66,7 @@ public class FactoryPanelRendererMixin {
             return other != null ? ab.calculatePath(other, color) : ab.calculateExtraPath(connection.from.pos());
         } else if(other instanceof AbstractPanelBehaviour ab) {
             for(PanelConnection<?> c : ab.getConnections()) {
-                if(c == DeployerPanelConnections.ITEMSTACK.get()) return color;
+                if(c == DeployerPanelConnections.ITEM_STACK.get()) return color;
                 if(c == DeployerPanelConnections.INTEGER.get()) return 0x006496;
                 if(c == DeployerPanelConnections.REDSTONE.get()) return DeployerPanelConnections.getConnectionValue(ab, DeployerPanelConnections.REDSTONE).orElse(0)==0?0x580101:0xEF0000;
                 if(c == DeployerPanelConnections.STRING.get()) return 0xFFFFFFFF;

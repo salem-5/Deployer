@@ -7,9 +7,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-
 /**
  * An abstraction of {@link PackagerBlock} to handle differently the block
  * */

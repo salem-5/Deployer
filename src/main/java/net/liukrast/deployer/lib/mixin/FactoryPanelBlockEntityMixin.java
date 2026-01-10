@@ -7,29 +7,40 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.utility.CreateLang;
 import net.liukrast.deployer.lib.DeployerConstants;
 import net.liukrast.deployer.lib.logistics.board.AbstractPanelBehaviour;
+import net.liukrast.deployer.lib.mixinExtensions.FPBEExtension;
 import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.Objects;
+import java.util.List;
 
 import static com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlock.PanelSlot;
 
 @Mixin(FactoryPanelBlockEntity.class)
-public abstract class FactoryPanelBlockEntityMixin extends SmartBlockEntity {
+public abstract class FactoryPanelBlockEntityMixin extends SmartBlockEntity implements FPBEExtension {
 
     @Shadow public EnumMap<PanelSlot, FactoryPanelBehaviour> panels;
+
+    @Unique
+    private final List<ItemStack> deployer$extraDrops = new ArrayList<>();
+
+    @Override
+    public List<ItemStack> deployer$getExtraDrops() {
+        return deployer$extraDrops;
+    }
 
     public FactoryPanelBlockEntityMixin(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -61,10 +72,11 @@ public abstract class FactoryPanelBlockEntityMixin extends SmartBlockEntity {
 
     @Inject(method = "destroy", at = @At("HEAD"))
     private void destroy(CallbackInfo ci) {
-        var instance = FactoryPanelBlockEntity.class.cast(this);
+        //var instance = FactoryPanelBlockEntity.class.cast(this);
+        deployer$extraDrops.clear();
         for(var panel : panels.values()) {
             if(!panel.active) continue;
-            Block.popResource(Objects.requireNonNull(instance.getLevel()), instance.getBlockPos(), panel instanceof AbstractPanelBehaviour ab ? ab.getItem().getDefaultInstance() : AllBlocks.FACTORY_GAUGE.asStack());
+            deployer$extraDrops.add(panel instanceof AbstractPanelBehaviour ab ? ab.getItem().getDefaultInstance() : AllBlocks.FACTORY_GAUGE.asStack());
         }
     }
 }

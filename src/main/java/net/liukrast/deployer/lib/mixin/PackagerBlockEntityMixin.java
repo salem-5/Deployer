@@ -62,7 +62,7 @@ public abstract class PackagerBlockEntityMixin extends SmartBlockEntity {
         if(heldBox.isEmpty()) {
             heldBox = box;
             animationInward = false;
-            animationTicks = 0;
+            animationTicks = 20;
             notifyUpdate();
         }
         cir.setReturnValue(false);

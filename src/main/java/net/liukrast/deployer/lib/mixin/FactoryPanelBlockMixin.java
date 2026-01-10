@@ -1,5 +1,7 @@
 package net.liukrast.deployer.lib.mixin;
 
+import com.llamalad7.mixinextras.expression.Definition;
+import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -11,10 +13,13 @@ import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlock;
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlockEntity;
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlockItem;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBlockItem;
+import com.simibubi.create.foundation.block.IBE;
 import net.liukrast.deployer.lib.logistics.board.AbstractPanelBehaviour;
 import net.liukrast.deployer.lib.logistics.board.PanelBlockItem;
+import net.liukrast.deployer.lib.mixinExtensions.FPBEExtension;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
@@ -27,6 +32,7 @@ import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -39,18 +45,27 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 @Mixin(FactoryPanelBlock.class)
-public abstract class FactoryPanelBlockMixin extends Block {
+public abstract class FactoryPanelBlockMixin extends Block implements IBE<FactoryPanelBlockEntity> {
+
+    /* SHADOWS, UNIQUE AND CONSTRCTOR */
+
+    @Unique private static ItemStack extra_gauges$tryDestroySubPanelFirst$local$itemStack;
 
     public FactoryPanelBlockMixin(Properties properties) {
         super(properties);
     }
 
+    @Shadow
+    public static FactoryPanelBlock.PanelSlot getTargetedSlot(BlockPos pos, BlockState blockState, Vec3 clickLocation) {
+        throw new AssertionError("Mixin injection failed");
+    }
+
+    /* OVERRIDES */
     @Override
     public @NotNull ItemStack getCloneItemStack(@NotNull BlockState state, @NotNull HitResult target, @NotNull LevelReader level, @NotNull BlockPos pos, @NotNull Player player) {
         if(level.getBlockEntity(pos) instanceof FactoryPanelBlockEntity be) {
@@ -65,41 +80,62 @@ public abstract class FactoryPanelBlockMixin extends Block {
 
     @Override
     protected @NotNull List<ItemStack> getDrops(@NotNull BlockState state, LootParams.@NotNull Builder params) {
-        return new ArrayList<>();
+        if(params.getParameter(LootContextParams.BLOCK_ENTITY) instanceof FactoryPanelBlockEntity fpbe)
+            return ((FPBEExtension)fpbe).deployer$getExtraDrops();
+        return List.of();
     }
 
-    @Shadow
-    public static FactoryPanelBlock.PanelSlot getTargetedSlot(BlockPos pos, BlockState blockState, Vec3 clickLocation) {
-        throw new AssertionError("Mixin injection failed");
-    }
-
+    /* <INIT> */
+    /* CREATE BLOCK STATE DEFINITION */
+    /* CAN SURVIVE */
+    /* CAN ATTACH LENIENT */
+    /* GET STATE FOR PLACEMENT */
     @ModifyExpressionValue(method = "getStateForPlacement", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;isClientSide()Z"))
-    private boolean getStateForPlacement(boolean original, @Local(argsOnly = true) BlockPlaceContext context, @Local FactoryPanelBlockEntity blockEntity, @Local(ordinal = 1) BlockState state, @Local Vec3 location) {
+    private boolean getStateForPlacement(boolean original, @Local(argsOnly = true) BlockPlaceContext context, @Local(name = "fpbe") FactoryPanelBlockEntity blockEntity, @Local(name = "blockState") BlockState state, @Local(name = "location") Vec3 location) {
         if(original) return true;
         if(!(context.getItemInHand().getItem() instanceof PanelBlockItem panelBlockItem)) return false;
         panelBlockItem.applyExtraPlacementData(context, blockEntity, getTargetedSlot(context.getClickedPos(), state, location));
         return true;
     }
-
+    /* ON SNEAK WRENCHED */
     @ModifyArg(method = "lambda$onSneakWrenched$0", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Inventory;placeItemBackInInventory(Lnet/minecraft/world/item/ItemStack;)V"))
-    private static ItemStack asStack(ItemStack original, @Local FactoryPanelBehaviour behaviour) {
+    private static ItemStack asStack(ItemStack original, @Local(name = "behaviour") FactoryPanelBehaviour behaviour) {
         if(!(behaviour instanceof AbstractPanelBehaviour abstractPanelBehaviour)) return original;
         return abstractPanelBehaviour.getItem().getDefaultInstance();
     }
 
+    @SuppressWarnings("SameReturnValue")
+    @Definition(id = "world", local = @Local(type = Level.class, name = "world"))
+    @Definition(id = "ServerLevel", type = ServerLevel.class)
+    @Expression("world instanceof ServerLevel")
+    @ModifyExpressionValue(method = "onSneakWrenched", at = @At("MIXINEXTRAS:EXPRESSION"))
+    private boolean onSneakWrenched(boolean original, @Local(name = "slot") FactoryPanelBlock.PanelSlot slot, @Local(name = "world") Level world, @Local(name = "pos") BlockPos pos) {
+        if(original) return true;
+        onBlockEntityUse(world, pos, be -> {
+            FactoryPanelBehaviour behaviour = be.panels.get(slot);
+            if(behaviour == null || !behaviour.isActive())
+                return null;
+            if(!be.removePanel(slot))
+                return null;
+            return null;
+        });
+
+        return true;
+    }
+    /* SET PLACED BY */
     @WrapWithCondition(method = "setPlacedBy", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBlock;withBlockEntityDo(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Ljava/util/function/Consumer;)V"))
-    private boolean withBlockEntityDo(FactoryPanelBlock instance, BlockGetter blockGetter, BlockPos pos, Consumer<FactoryPanelBlockEntity> consumer, @Local(argsOnly = true) ItemStack stack, @Local FactoryPanelBlock.PanelSlot initialSlot) {
+    private boolean withBlockEntityDo(FactoryPanelBlock instance, BlockGetter blockGetter, BlockPos pos, Consumer<FactoryPanelBlockEntity> consumer, @Local(argsOnly = true) ItemStack stack, @Local(name = "initialSlot") FactoryPanelBlock.PanelSlot initialSlot) {
         if(!(stack.getItem() instanceof PanelBlockItem panelBlockItem)) return true;
-        FactoryPanelBlock.class.cast(this).withBlockEntityDo(blockGetter, pos, blockEntity -> panelBlockItem.applyToSlot(blockEntity, initialSlot, LogisticallyLinkedBlockItem.networkFromStack(FactoryPanelBlockItem.fixCtrlCopiedStack(stack))));
+        withBlockEntityDo(blockGetter, pos, blockEntity -> panelBlockItem.applyToSlot(blockEntity, initialSlot, LogisticallyLinkedBlockItem.networkFromStack(FactoryPanelBlockItem.fixCtrlCopiedStack(stack))));
         return false;
     }
-
+    /* USE ITEM ON */
     @Inject(method = "useItemOn", at = @At(value = "INVOKE", target = "Lcom/tterrag/registrate/util/entry/BlockEntry;isIn(Lnet/minecraft/world/item/ItemStack;)Z"), cancellable = true)
     private void useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult, CallbackInfoReturnable<ItemInteractionResult> cir) {
         if(!(stack.getItem() instanceof PanelBlockItem panelBlockItem)) return;
         if(level.getBlockEntity(pos) instanceof FactoryPanelBlockEntity panel && panel.restocker) {
             AllSoundEvents.DENY.playOnServer(level, pos);
-            player.displayClientMessage(Component.translatable("extra_gauges.panel.custom_panel_on_restocker"), true);
+            //player.displayClientMessage(Component.translatable("extra_gauges.panel.custom_panel_on_restocker"), true);
             cir.setReturnValue(ItemInteractionResult.CONSUME);
             cir.cancel();
             return;
@@ -134,22 +170,23 @@ public abstract class FactoryPanelBlockMixin extends Block {
         if(!(stack.getItem() instanceof PanelBlockItem blockItem)) return message;
         return blockItem.getPlacedMessage();
     }
-
-    @Unique
-    private static ItemStack extra_gauges$stored$itemStack;
-
+    /* ON DESTROYED BY PLAYER */
+    /* TRY DESTROY SUB PANEL FIRST */
     @Inject(method = "lambda$tryDestroySubPanelFirst$3", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBlockEntity;activePanels()I"))
     private static void lambda$tryDestroySubPanelFirst$3(FactoryPanelBlock.PanelSlot destroyedSlot, Player player, Level level, BlockPos pos, FactoryPanelBlockEntity fpbe, CallbackInfoReturnable<InteractionResult> cir) {
         var behaviour = fpbe.panels.get(destroyedSlot);
-        if(!(behaviour instanceof AbstractPanelBehaviour panelBehaviour)) extra_gauges$stored$itemStack = null;
-        else extra_gauges$stored$itemStack = panelBehaviour.getItem().getDefaultInstance();
+        if(!(behaviour instanceof AbstractPanelBehaviour panelBehaviour)) extra_gauges$tryDestroySubPanelFirst$local$itemStack = null;
+        else extra_gauges$tryDestroySubPanelFirst$local$itemStack = panelBehaviour.getItem().getDefaultInstance();
     }
 
     @ModifyArg(method = "lambda$tryDestroySubPanelFirst$3", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBlock;popResource(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/item/ItemStack;)V"))
     private static ItemStack lambda$tryDestroySubPanelFirst$3(ItemStack stack) {
-        return extra_gauges$stored$itemStack == null ? stack : extra_gauges$stored$itemStack;
+        return extra_gauges$tryDestroySubPanelFirst$local$itemStack == null ? stack : extra_gauges$tryDestroySubPanelFirst$local$itemStack;
     }
-
+    /* IS SIGNAL SOURCE */
+    /* GET SIGNAL */
+    /* GET DIRECT SIGNAL */
+    /* CAN BE REPLACED */
     @ModifyExpressionValue(method = "canBeReplaced", at = @At(value = "INVOKE", target = "Lcom/tterrag/registrate/util/entry/BlockEntry;isIn(Lnet/minecraft/world/item/ItemStack;)Z"))
     private boolean canBeReplaced(boolean original, @Local(argsOnly = true) BlockPlaceContext context) {
         return original || context.getItemInHand().getItem() instanceof PanelBlockItem;
@@ -160,4 +197,26 @@ public abstract class FactoryPanelBlockMixin extends Block {
         if(instance == null) return false;
         return original.call(instance);
     }
+    /* GET COLLISION SHAPE */
+    /* GET SHAPE */
+    /* UPDATE SHAPE */
+    /* GET FLUID STATE */
+    /* CONNECTED DIRECTION */
+    /* GET TARGETED SLOT */
+    /* GET BLOCK ENTITY CLASS */
+    /* GET BLOCK ENTITY TYPE */
+    /* GET X ROT */
+    /* GET Y ROT */
+    /* GET REQUIRED ITEMS */
+    /* CODEC */
+
+
+
+
+
+
+
+
+
+
 }

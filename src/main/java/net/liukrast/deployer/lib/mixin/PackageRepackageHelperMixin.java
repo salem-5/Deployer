@@ -8,11 +8,13 @@ import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.box.PackageItem;
 import com.simibubi.create.content.logistics.packager.repackager.PackageRepackageHelper;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
+import net.liukrast.deployer.lib.logistics.OrderStockTypeData;
 import net.liukrast.deployer.lib.logistics.packager.AbstractInventorySummary;
 import net.liukrast.deployer.lib.logistics.packager.GenericPackageItem;
 import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.liukrast.deployer.lib.mixinExtensions.PRHExtension;
+import net.liukrast.deployer.lib.registry.DeployerDataComponents;
 import net.minecraft.core.NonNullList;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -68,30 +70,36 @@ public abstract class PackageRepackageHelperMixin implements PRHExtension {
         for(StockInventoryType<?,?,?> type : deployer$collectedPackages.keySet()) {
             list.addAll(deployer$repack(type, orderId, r));
         }
-        //TODO: Create composite packages here
     }
 
     @Override
     public <K, V, H> List<BigItemStack> deployer$repack(StockInventoryType<K, V, H> type, int orderId, RandomSource r) {
         List<BigItemStack> exportingPackages = new ArrayList<>();
         String address = "";
+        OrderStockTypeData typeData = null;
         GenericOrderContained<V> orderContext = null;
-        AbstractInventorySummary<K, V> summary = type.networkHandler().create();
+        AbstractInventorySummary<K, V> summary = type.networkHandler().createSummary();
+        var li = deployer$collectedPackages.computeIfAbsent(type, $ -> new HashMap<>()).get(orderId);
+        if(li != null) {
+            for (ItemStack box : li) {
+                address = PackageItem.getAddress(box);
+                var c = box.get(DeployerDataComponents.ORDER_STOCK_TYPE_DATA);
+                if(c != null) typeData = c;
+                var comp = type.packageHandler().packageOrderData();
+                if (box.has(comp)) {
+                    var compGot = box.get(comp);
+                    if(compGot != null) {
+                        GenericOrderContained<V> context = compGot.orderContext();
+                        if (context != null && !context.isEmpty())
+                            orderContext = context;
+                    }
+                }
 
-        for (ItemStack box : deployer$collectedPackages.get(type).get(orderId)) {
-            address = PackageItem.getAddress(box);
-            var comp = type.packageHandler().packageOrderData();
-            if (box.has(comp)) {
-                @SuppressWarnings("DataFlowIssue")
-                GenericOrderContained<V> context = box.get(comp).orderContext();
-                if (context != null && !context.isEmpty())
-                    orderContext = context;
+                H contents = type.packageHandler().getContents(box);
+
+                for (int slot = 0; slot < type.storageHandler().getSlots(contents); slot++)
+                    summary.add(type.storageHandler().getStackInSlot(contents, slot));
             }
-
-            H contents = type.packageHandler().getContents(box);
-
-            for (int slot = 0; slot < type.storageHandler().getSlots(contents); slot++)
-                summary.add(type.storageHandler().getStackInSlot(contents, slot));
         }
 
         List<V> orderedStacks = new ArrayList<>();
@@ -105,12 +113,9 @@ public abstract class PackageRepackageHelperMixin implements PRHExtension {
             if (packagesSplitByRecipe.isEmpty())
                 for (V stack : orderContext.stacks())
                     orderedStacks.add(type.valueHandler().copy(stack));
-            //noinspection ConstantValue
-            if(packagesSplitByRecipe.isEmpty())
-                for(V stack : orderContext.stacks())
-                    orderedStacks.add(type.valueHandler().copy(stack));
         }
-
+        //Note:
+        // in the future a new key instead of V might be necessary here if a library decides to use some kind of stack that has limited count
         List<V> allItems = summary.getStacks();
         List<V> outputSlots = new ArrayList<>();
 
@@ -153,15 +158,16 @@ public abstract class PackageRepackageHelperMixin implements PRHExtension {
             }
         }
 
+        int maxSlots = type.storageHandler().getMaxPackageSlots();
         int currentSlot = 0;
-        H target = type.storageHandler().create(type.storageHandler().getMaxPackageSlots());
+        H target = type.storageHandler().create(maxSlots);
 
         for (V item : outputSlots) {
             type.storageHandler().setInSlot(target, currentSlot++, item, false);
-            if (currentSlot < PackageItem.SLOTS)
+            if (currentSlot < maxSlots)
                 continue;
             exportingPackages.add(new BigItemStack(type.packageHandler().containing(target), 1));
-            target = type.storageHandler().create(type.storageHandler().getMaxPackageSlots());
+            target = type.storageHandler().create(maxSlots);
             currentSlot = 0;
         }
 
@@ -172,8 +178,10 @@ public abstract class PackageRepackageHelperMixin implements PRHExtension {
             }
 
 
-        for (BigItemStack box : exportingPackages)
+        for (BigItemStack box : exportingPackages) {
             PackageItem.addAddress(box.stack, address);
+            if(typeData != null) box.stack.set(DeployerDataComponents.ORDER_STOCK_TYPE_DATA, typeData);
+        }
 
         for (int i = 0; i < exportingPackages.size(); i++) {
             BigItemStack box = exportingPackages.get(i);

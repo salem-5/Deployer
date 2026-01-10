@@ -141,7 +141,7 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
         var type = getStockType();
         var handler = type.storageHandler();
 
-        AbstractInventorySummary<K,V> availableItems = type.networkHandler().create();
+        AbstractInventorySummary<K,V> availableItems = type.networkHandler().createSummary();
 
         H targetInv = targetInventory.getInventory();
         if (targetInv == null || targetInv instanceof PackagerItemHandler) {
@@ -462,17 +462,23 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
         A fluid packager cannot pack/unpack normal packages unless it's composite */
         if(!(box.getItem() instanceof GenericPackageItem generic)) {
             heldBox = box;
+            animationInward = false;
+            animationTicks = 20;
+            notifyUpdate();
             return false;
         }
         var type = getStockType();
         if(generic.getType() != type) {
-            heldBox = box; //TODO: CHECK
+            heldBox = box;
+            animationInward = false;
+            animationTicks = 20;
+            notifyUpdate();
             return false;
         }
         if (animationTicks > 0)
             return false;
 
-        Objects.requireNonNull(this.level); //Who wrote this?
+        Objects.requireNonNull(this.level);
 
         var ph = type.packageHandler();
 

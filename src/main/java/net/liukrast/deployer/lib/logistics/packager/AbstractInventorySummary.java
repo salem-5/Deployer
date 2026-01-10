@@ -116,7 +116,7 @@ public abstract class AbstractInventorySummary<K, V> {
      * @return A duplicate of this summary
      * */
     public AbstractInventorySummary<K, V> copy() {
-        AbstractInventorySummary<K, V> summary = type.networkHandler().create();
+        AbstractInventorySummary<K, V> summary = type.networkHandler().createSummary();
         items.forEach((i, list) -> list.forEach(summary::add));
         return summary;
     }
@@ -135,13 +135,22 @@ public abstract class AbstractInventorySummary<K, V> {
      */
     public void add(V stack, int count) {
         if(count == 0 || type.valueHandler().isEmpty(stack)) return;
-        if(totalCount < BigItemStack.INF) totalCount+=count; //TODO: Allow users to set the limit for this summary
+
+        if(totalCount < BigItemStack.INF) {
+            if(count > Integer.MAX_VALUE - totalCount)
+                totalCount = Integer.MAX_VALUE;
+            else totalCount+=count;
+        }
 
         List<V> stacks = items.computeIfAbsent(keyFrom(stack),$ -> Lists.newArrayList());
         for(V existing : stacks) {
             if(isSameKeySameComponents(existing, stack)) {
+                int existingCount = getCount(existing);
+                int resultCount;
+                if(existingCount > Integer.MAX_VALUE - count) resultCount = Integer.MAX_VALUE;
+                else resultCount = existingCount + count;
                 if(getCount(existing) < BigItemStack.INF)
-                    setCount(existing, getCount(existing) + count);
+                    setCount(existing, resultCount);
                 return;
             }
         }
@@ -152,7 +161,7 @@ public abstract class AbstractInventorySummary<K, V> {
     /**
      * Removes the matching stack from this summary.
      * Searches the entry bucket associated with the key of the provided stack.
-     * If a stack with identical item and components is found, it is removed and its count is subtracted from the total.
+     * If a stack with identical items and components is found, it is removed and its count is subtracted from the total.
      * Returns {@code true} if a matching stack was successfully erased.
      * Returns {@code false} if no matching entry existed.
      *

@@ -41,8 +41,13 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.objectweb.asm.Opcodes;
-import org.spongepowered.asm.mixin.*;
-import org.spongepowered.asm.mixin.injection.*;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -50,7 +55,6 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-@Debug(export = true)
 @Mixin(StockKeeperRequestScreen.class)
 public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContainerScreen<StockKeeperRequestMenu> {
     @Shadow
@@ -128,7 +132,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     @Unique
     private final Map<StockInventoryType<?, ?, ?>, AbstractInventorySummary<?, ?>> deployer$forcedEntries = DeployerRegistries.STOCK_INVENTORY.stream().collect(Collectors.toMap(
             type -> type,
-            type -> type.networkHandler().create()
+            type -> type.networkHandler().createSummary()
     ));
     @Unique
     private final Map<StockInventoryType<?, ?, ?>, List<?>> deployer$itemsToOrder = DeployerRegistries.STOCK_INVENTORY.stream().collect(Collectors.toMap(
@@ -812,7 +816,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         List<V> itemsToOrder = (List<V>) deployer$itemsToOrder.get(type);
         if (itemsToOrder.isEmpty()) return null;
 
-        deployer$forcedEntries.put(type, type.networkHandler().create());
+        deployer$forcedEntries.put(type, type.networkHandler().createSummary());
 
         AbstractInventorySummary<K, V> summary = ((STBEExtension) blockEntity).deployer$getLastClientsideStockSnapshotAsSummary(type);
         for (V value : itemsToOrder) {

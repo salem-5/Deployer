@@ -28,6 +28,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /*
 * K -> key (for items, Item)
@@ -44,29 +46,68 @@ public abstract class StockInventoryType<K,V,H> {
     @NotNull public abstract IPackageHandler<K,V,H> packageHandler();
     @NotNull public abstract ItemStack getIcon();
 
-    public interface IValueHandler<K,V,H> {
-        Codec<V> codec();
-        StreamCodec<? super RegistryFriendlyByteBuf, V> streamCodec();
-        //TODO: Cache codec
-        default StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>> orderStreamCodec() {
-            return GenericOrder.simpleStreamCodec(streamCodec());
+    public abstract static class IValueHandler<K,V,H> {
+        private final Codec<V> codec;
+        private final Codec<GenericOrder<V>> orderCodec;
+        private final Codec<GenericOrderContained<V>> orderContainedCodec;
+        private final StreamCodec<? super RegistryFriendlyByteBuf, V> streamCodec;
+        private final StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>> orderStreamCodec;
+        private final StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>> orderContainedStreamCodec;
+
+        public IValueHandler(
+                Codec<V> codec,
+                StreamCodec<? super RegistryFriendlyByteBuf, V> streamCodec
+        ) {
+            this(codec, GenericOrder::simpleCodec, GenericOrderContained::fromOrderCodec, streamCodec, GenericOrder::simpleStreamCodec, GenericOrderContained::fromOrderStreamCodec);
         }
-        //TODO: Cache codec
-        default StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>> orderContainedStreamCodec() {
-            return GenericOrderContained.fromOrderStreamCodec(orderStreamCodec());
+
+        public IValueHandler(Codec<V> codec,
+                             Function<Codec<V>, Codec<GenericOrder<V>>> orderFactory,
+                             BiFunction<Codec<GenericOrder<V>>, Codec<V>, Codec<GenericOrderContained<V>>> orderContainedFactory,
+                             StreamCodec<? super RegistryFriendlyByteBuf, V> streamCodec,
+                             Function<StreamCodec<? super RegistryFriendlyByteBuf, V>, StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>>> orderStreamFactory,
+                             Function<StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>>, StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>>> orderContainedStreamFactory
+        ) {
+            this.codec = codec;
+            this.orderCodec = orderFactory.apply(codec);
+            this.orderContainedCodec = orderContainedFactory.apply(orderCodec, codec);
+            this.streamCodec = streamCodec;
+            this.orderStreamCodec = orderStreamFactory.apply(streamCodec);
+            this.orderContainedStreamCodec = orderContainedStreamFactory.apply(orderStreamCodec);
         }
-        K fromValue(V key);
-        boolean equalsIgnoreCount(V a, V b);
-        boolean test(FilterItemStack filter, Level level, V value);
-        int getCount(V value);
-        void setCount(V value, int count);
-        boolean isEmpty(V stack);
-        V create(K key, int amount);
-        void shrink(V stack, int amount);
-        V copyWithCount(V stack, int amount);
-        V copy(V stack);
-        boolean isStackable(V stack);
-        V empty();
+
+        public Codec<V> codec() {
+            return codec;
+        }
+        public Codec<GenericOrder<V>> orderCodec() {
+            return orderCodec;
+        }
+        public Codec<GenericOrderContained<V>> orderContainedCodec() {
+            return orderContainedCodec;
+        }
+        public StreamCodec<? super RegistryFriendlyByteBuf, V> streamCodec() {
+            return streamCodec;
+        }
+
+        public StreamCodec<RegistryFriendlyByteBuf, GenericOrder<V>> orderStreamCodec() {
+            return orderStreamCodec;
+        }
+
+        public StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>> orderContainedStreamCodec() {
+            return orderContainedStreamCodec;
+        }
+        public abstract K fromValue(V key);
+        public abstract boolean equalsIgnoreCount(V a, V b);
+        public abstract boolean test(FilterItemStack filter, Level level, V value);
+        public abstract int getCount(V value);
+        public abstract void setCount(V value, int count);
+        public abstract boolean isEmpty(V stack);
+        public abstract V create(K key, int amount);
+        public abstract void shrink(V stack, int amount);
+        public abstract V copyWithCount(V stack, int amount);
+        public abstract V copy(V stack);
+        public abstract boolean isStackable(V stack);
+        public abstract V empty();
     }
 
     public interface IStorageHandler<K,V,H> {
@@ -84,7 +125,7 @@ public abstract class StockInventoryType<K,V,H> {
 
     public interface INetworkHandler<K,V,H> {
         Codec<GenericRequestPromise<V>> requestCodec();
-        AbstractInventorySummary<K, V> create();
+        AbstractInventorySummary<K, V> createSummary();
         AbstractInventorySummary<K,V> empty();
         DataComponentType<? super GenericPackageOrderData<V>> getComponent();
     }
@@ -128,7 +169,6 @@ public abstract class StockInventoryType<K,V,H> {
 
     public record CategoryRenderData(int x, int y, int itemsX, int itemsY, int categoryY, int rowHeight, int colWidth, int cols, List<StockKeeperRequestScreen.CategoryEntry> categories, float currentScroll, int windowHeight, Couple<Integer> hoveredSlot, int categoryIndex, PoseStack ms, Font font) {}
     public record OrderRenderData(int x, int y, int itemsX, int itemsY, int rowHeight, int colWidth, int orderY, int cols, Couple<Integer> hoveredSlot, PoseStack ms) {}
-    public record SlotClickedData(int cols, boolean lmb, boolean rmb, boolean orderClicked) {}
 
     public abstract BlockCapability<H, @Nullable Direction> getBlockCapability();
 

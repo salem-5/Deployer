@@ -9,9 +9,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.List;
 
 /**
- * Expands the concept of goggle information to blocks and entities, rather than block entities only.<p>
+ * Expands the concept of goggle information to blocks and entities, rather than block entities only.<br>
  * Note: On blocks, you should use {@link DeployerGoggleInformation#addToGoogleTooltip(Level, BlockPos, BlockState, List, boolean)} rather than {@link IHaveGoggleInformation#addToGoggleTooltip(List, boolean)},
- * so that you can access world, position and state data.<p>
+ * so that you can access world, position and state data.<br>
  * <pre>{@code
  *     public class MyBlock extends Block implements DeployerGoggleInformation {
  *         public boolean addToGoogleTooltip(Level level, BlockPos pos, BlockState state, List<Component> tooltip, boolean isPlayerSneaking) {

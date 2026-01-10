@@ -19,14 +19,14 @@ public record GenericPackageOrderData<V>(int orderId, int linkIndex, boolean isF
         this(orderId, linkIndex, isFinalLink, fragmentIndex, isFinal, orderContext.orElse(null));
     }
 
-    public static <V> Codec<GenericPackageOrderData<V>> simpleCodec(Codec<V> codec) {
+    public static <V> Codec<GenericPackageOrderData<V>> createCodec(Supplier<StockInventoryType<?, V, ?>> supplierType) {
         return RecordCodecBuilder.create(instance -> instance.group(
                 Codec.INT.fieldOf("order_id").forGetter(GenericPackageOrderData::orderId),
                 Codec.INT.fieldOf("link_index").forGetter(GenericPackageOrderData::linkIndex),
                 Codec.BOOL.fieldOf("is_final_link").forGetter(GenericPackageOrderData::isFinalLink),
                 Codec.INT.fieldOf("fragment_index").forGetter(GenericPackageOrderData::fragmentIndex),
                 Codec.BOOL.fieldOf("is_final").forGetter(GenericPackageOrderData::isFinal),
-                GenericOrderContained.simpleCodec(codec).optionalFieldOf("order_context").forGetter(i -> Optional.ofNullable(i.orderContext))
+                CodecHelpers.Normal.deferredCodec(() -> supplierType.get().valueHandler().orderContainedCodec()).optionalFieldOf("order_context").forGetter(i -> Optional.ofNullable(i.orderContext))
         ).apply(instance, GenericPackageOrderData::new));
     }
 

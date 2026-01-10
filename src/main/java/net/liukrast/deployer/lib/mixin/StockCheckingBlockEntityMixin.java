@@ -50,7 +50,7 @@ public abstract class StockCheckingBlockEntityMixin extends SmartBlockEntity imp
     }
 
     @Override
-    public void deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> requests, String address) {
-        LogisticsGenericManager.broadcastAllPackageRequest(defaultOrder, behaviour.freqId, requestType, requests, address);
+    public boolean deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> requests, String address) {
+        return LogisticsGenericManager.broadcastAllPackageRequest(defaultOrder, behaviour.freqId, requestType, requests, address);
     }
 }

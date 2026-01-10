@@ -6,19 +6,13 @@ issueTrackerURL="https://github.com/LIUKRAST/Deployer/issues"
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
-displayURL="https://liukrast.net/mods/${mod_id}"
-logoFile="${mod_id}"
-credits="Mod credits here do not support multiline"
+displayURL="https://liukrast.net/"
+logoFile="${mod_id}.png"
+credits="Credits to SWZO and Propants for the main idea"
 authors="${mod_authors}"
 description='''${mod_description}'''
 [[mixins]]
 config="${mod_id}.mixins.json"
-# The [[accessTransformers]] block allows you to declare where your AT file is.
-# If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg
-#[[accessTransformers]]
-#file="META-INF/accesstransformer.cfg"
-
-# The coremods config file path is not configurable and is always loaded from META-INF/coremods.json
 
 [[dependencies."${mod_id}"]]
     modId="neoforge"
@@ -33,8 +27,8 @@ config="${mod_id}.mixins.json"
     ordering="NONE"
     side="BOTH"
 [[dependencies."${mod_id}"]]
-modId="create"
-type="required"
-versionRange="${create_version_range}"
-ordering="NONE"
-side="BOTH"
+    modId="create"
+    type="required"
+    versionRange="${create_version_range}"
+    ordering="NONE"
+    side="BOTH"

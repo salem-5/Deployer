@@ -13,6 +13,10 @@ public record GenericOrderContained<V>(GenericOrder<V> orderedStacks) {
         return orderedStacks.stacks();
     }
 
+    public static <V> GenericOrderContained<V> empty() {
+        return new GenericOrderContained<V>(GenericOrder.empty());
+    }
+
     public boolean isEmpty() {
         return orderedStacks.isEmpty();
     }
@@ -21,22 +25,21 @@ public record GenericOrderContained<V>(GenericOrder<V> orderedStacks) {
         return new GenericOrderContained<>(new GenericOrder<>(stacks));
     }
 
-    public static <V> Codec<GenericOrderContained<V>> simpleCodec(Codec<V> codec) {
-        return Codec.withAlternative(
-                RecordCodecBuilder.create(i -> i.group(
-                        GenericOrder.simpleCodec(codec).fieldOf("ordered_stacks").forGetter(GenericOrderContained::orderedStacks)
-                ).apply(i, GenericOrderContained::new)),
-                RecordCodecBuilder.create(i -> i.group(
-                        Codec.list(codec).fieldOf("entries").forGetter(GenericOrderContained::stacks)
-                ).apply(i, GenericOrderContained::simple))
-        );
-    }
-
-
     public static <V> StreamCodec<RegistryFriendlyByteBuf, GenericOrderContained<V>> fromOrderStreamCodec(StreamCodec<? super RegistryFriendlyByteBuf, GenericOrder<V>> codec) {
         return StreamCodec.composite(
                 codec, GenericOrderContained::orderedStacks,
                 GenericOrderContained::new
+        );
+    }
+
+    public static <V> Codec<GenericOrderContained<V>> fromOrderCodec(Codec<GenericOrder<V>> codec, Codec<V> alternative) {
+        return Codec.withAlternative(
+                RecordCodecBuilder.create(i -> i.group(
+                        codec.fieldOf("ordered_stacks").forGetter(GenericOrderContained::orderedStacks)
+                ).apply(i, GenericOrderContained::new)),
+                RecordCodecBuilder.create(i -> i.group(
+                        Codec.list(alternative).fieldOf("entries").forGetter(GenericOrderContained::stacks)
+                ).apply(i, GenericOrderContained::simple))
         );
     }
 }

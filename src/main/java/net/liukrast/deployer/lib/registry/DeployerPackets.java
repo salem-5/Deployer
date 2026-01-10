@@ -38,7 +38,7 @@ public enum DeployerPackets implements BasePacketPayload.PacketTypeProvider {
     }
 
     public static void register() {
-        CatnipPacketRegistry packetRegistry = new CatnipPacketRegistry(DeployerConstants.MOD_ID, "1.0.0");
+        CatnipPacketRegistry packetRegistry = new CatnipPacketRegistry(DeployerConstants.MOD_ID, DeployerConstants.PROTOCOL_VERSION);
         for (DeployerPackets packet : values()) {
             packetRegistry.registerPacket(packet.type);
         }

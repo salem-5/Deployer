@@ -26,6 +26,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.Level;
+import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -49,7 +50,7 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
     @Shadow @Nullable public static FactoryPanelBehaviour at(BlockAndTintGetter world, FactoryPanelConnection connection) {throw new AssertionError("Mixin injection failed");}
     /* IMPL METHODS */
     @Override public Map<BlockPos, FactoryPanelConnection> deployer$getExtra() {return deployer$targetedByExtra;}
-    
+
     /* Allows abstract panels to decide whether they want to use or original tick function */
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/foundation/blockEntity/behaviour/filtering/FilteringBehaviour;tick()V", shift = At.Shift.AFTER), cancellable = true)
     private void tick(CallbackInfo ci) {if(FactoryPanelBehaviour.class.cast(this) instanceof AbstractPanelBehaviour ab && ab.skipOriginalTick()) ci.cancel();}
@@ -63,7 +64,6 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
     }
 
     /* MOVE TO */
-    @SuppressWarnings("ModifyVariableMayBeArgsOnly")
     @ModifyVariable(method = "moveTo", at = @At(value = "STORE", ordinal = 0))
     private FactoryPanelBehaviour moveTo(FactoryPanelBehaviour original) {
         var be = ((FactoryPanelBlockEntity)original.blockEntity);
@@ -85,14 +85,14 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
 
     /* TICK REQUESTS */
     /* In the tick requests we filter all the gauges that do not contain a filter connection to avoid ticking non-item-related gauges */
-    @Redirect(method = "tickRequests", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBehaviour;targetedBy:Ljava/util/Map;"))
+    @Redirect(method = "tickRequests", at = @At(value = "FIELD", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBehaviour;targetedBy:Ljava/util/Map;", opcode = Opcodes.GETFIELD))
     private Map<FactoryPanelPosition, FactoryPanelConnection> tickRequests(FactoryPanelBehaviour instance) {
         Map<FactoryPanelPosition, FactoryPanelConnection> filtered = new HashMap<>();
         block: for (Map.Entry<FactoryPanelPosition, FactoryPanelConnection> entry : instance.targetedBy.entrySet()) {
             FactoryPanelBehaviour source = FactoryPanelBehaviour.at(instance.getWorld(), entry.getValue());
             if(source instanceof AbstractPanelBehaviour ab) {
                 for(var c : ab.getConnections()) {
-                    if(c == DeployerPanelConnections.ITEMSTACK.get()) break;
+                    if(c == DeployerPanelConnections.ITEM_STACK.get()) break;
                     if(c == DeployerPanelConnections.REDSTONE.get()) continue block;
                     if(c == DeployerPanelConnections.INTEGER.get()) continue block;
                     if(c == DeployerPanelConnections.STRING.get()) continue block;
@@ -105,12 +105,12 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
 
     /* DATA */
     @Inject(method = "write", at = @At(value = "INVOKE", target = "Lnet/minecraft/nbt/CompoundTag;putUUID(Ljava/lang/String;Ljava/util/UUID;)V"))
-    private void write(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket, CallbackInfo ci, @Local(ordinal = 1) CompoundTag panelTag) {
+    private void write(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket, CallbackInfo ci, @Local(name = "panelTag") CompoundTag panelTag) {
         panelTag.put("TargetedByExtra", CatnipCodecUtils.encode(Codec.list(FactoryPanelConnection.CODEC), new ArrayList<>(deployer$targetedByExtra.values())).orElseThrow());
     }
 
     @Inject(method = "read", at = @At(value = "INVOKE", target = "Ljava/util/Map;clear()V"))
-    private void read(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket, CallbackInfo ci, @Local(ordinal = 1) CompoundTag panelTag) {
+    private void read(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket, CallbackInfo ci, @Local(name = "panelTag") CompoundTag panelTag) {
         deployer$targetedByExtra.clear();
         CatnipCodecUtils.decode(Codec.list(FactoryPanelConnection.CODEC), panelTag.get("TargetedByExtra")).orElse(List.of())
                 .forEach(c -> deployer$targetedByExtra.put(c.from.pos(), c));
@@ -138,7 +138,7 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
     }
 
     /* OTHER PANELS UPDATE */
-    @ModifyVariable(method = "checkForRedstoneInput", at = @At(value = "STORE", ordinal = 0))
+    @ModifyVariable(method = "checkForRedstoneInput", at = @At(value = "STORE", ordinal = 0), name = "shouldPower")
     private boolean checkForRedstoneInput(boolean shouldPower, @Cancellable CallbackInfo ci) {
         var i = FactoryPanelBehaviour.class.cast(this);
         block: for(FactoryPanelConnection connection : targetedBy.values()) {
@@ -151,7 +151,7 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
             if(behaviour == null || !behaviour.isActive()) return false;
             if(!(behaviour instanceof AbstractPanelBehaviour panel)) continue;
             for(var c : panel.getConnections()) {
-                if(c == DeployerPanelConnections.ITEMSTACK.get()) continue block;
+                if(c == DeployerPanelConnections.ITEM_STACK.get()) continue block;
                 if(c == DeployerPanelConnections.INTEGER.get()) continue block;
                 if(c == DeployerPanelConnections.REDSTONE.get()) {
                     shouldPower |= panel.getConnectionValue(DeployerPanelConnections.REDSTONE).orElse(0) > 0;
@@ -193,7 +193,7 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
             if(!(behaviour instanceof AbstractPanelBehaviour panel)) continue;
             Set<PanelConnection<?>> connections = panel.getConnections();
             for(PanelConnection<?> c : connections) {
-                if(c == DeployerPanelConnections.ITEMSTACK.get()) continue block;
+                if(c == DeployerPanelConnections.ITEM_STACK.get()) continue block;
                 if(c == DeployerPanelConnections.INTEGER.get()) {
                     if(total == null) total = 0;
                     total += panel.getConnectionValue(DeployerPanelConnections.INTEGER.get()).orElse(0);

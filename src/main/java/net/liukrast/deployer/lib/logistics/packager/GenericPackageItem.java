@@ -1,6 +1,5 @@
 package net.liukrast.deployer.lib.logistics.packager;
 
-import com.simibubi.create.Create;
 import com.simibubi.create.content.logistics.box.PackageItem;
 import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;

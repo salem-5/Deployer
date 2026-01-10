@@ -11,7 +11,7 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 @Mod(value = DeployerConstants.MOD_ID, dist = Dist.CLIENT)
 public class DeployerClient {
     public DeployerClient(IEventBus eventBus, ModContainer container) {
-        container.registerConfig(ModConfig.Type.CLIENT, DeployerConfig.CLIENT_SPEC);
+        container.registerConfig(ModConfig.Type.CLIENT, DeployerConfig.Client.SPEC);
         container.registerExtensionPoint(IConfigScreenFactory.class, (modContainer, parent) -> new BaseConfigScreen(parent, modContainer.getModId()));
     }
 }

@@ -2,17 +2,18 @@ package net.liukrast.deployer.lib.logistics.stockTicker;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
-import net.createmod.catnip.codecs.stream.CatnipStreamCodecBuilders;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public record GenericOrder<V>(List<V> stacks) {
+
+    public static <V> GenericOrder<V> empty() {
+        return new GenericOrder<>(Collections.emptyList());
+    }
 
     public boolean isEmpty() {
         return stacks.isEmpty();

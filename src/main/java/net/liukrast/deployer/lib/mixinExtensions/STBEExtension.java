@@ -18,7 +18,8 @@ public interface STBEExtension {
      * Mandatory: Middle ? in StockInventoryType must match ? in GenericOrderContained
      *
      */
-    void deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?,?,?>, GenericOrderContained<?>> requests /* TODO: Introduce handler? */, String address);
+    @SuppressWarnings("UnusedReturnValue")
+    boolean deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?,?,?>, GenericOrderContained<?>> requests /* TODO: Introduce handler? */, String address);
     @SuppressWarnings("UnusedReturnValue")
     <K,V,H> boolean deployer$broadcastPackageRequest(StockInventoryType<K,V,H> type, LogisticallyLinkedBehaviour.RequestType requestType, GenericOrderContained<V> order, IdentifiedContainer<H> ignoredHandler, String address);
     <K,V,H> AbstractInventorySummary<K,V> deployer$getRecentSummary(StockInventoryType<K,V,H> type);

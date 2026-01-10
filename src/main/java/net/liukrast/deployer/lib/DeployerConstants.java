@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 
 public class DeployerConstants {
     private DeployerConstants() {}
+
+    public static final String PROTOCOL_VERSION = "1.0.0";
     public static final String MOD_ID = "deployer";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);

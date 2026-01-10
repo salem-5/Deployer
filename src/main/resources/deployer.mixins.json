@@ -19,7 +19,11 @@
 	"FactoryPanelSupportBehaviourMixin",
 	"FilteringBehaviourMixin",
 	"FilteringRendererMixin",
+	"FlowSource$FluidHandlerMixin",
+	"FlowSourceAccessor",
+	"FluidPropagatorMixin",
 	"GoggleOverlayRendererMixin",
+	"KineticBlockEntityAccessor",
 	"LogisticallyLinkedBehaviourMixin",
 	"LogisticsManagerAccessor",
 	"PackageItemMixin",
@@ -31,7 +35,12 @@
 	"PackagerLinkBlockEntityMixin",
 	"PackagerRendererMixin",
 	"PackagingRequestMixin",
+	"PumpBlockEntityMixin",
+	"RedstoneRequesterBlockEntityMixin",
+	"RedstoneRequesterBlockMixin",
+	"RepackagerBlockEntityMixin",
 	"RequestPromiseQueueMixin",
+	"SawBlockEntityMixin",
 	"StockCheckingBlockEntityMixin",
 	"StockTickerBlockEntityAccessor",
 	"StockTickerBlockEntityMixin",
@@ -41,7 +50,8 @@
 	"AllIconsMixin",
 	"StockKeeperRequestScreen$CategoryEntryAccessor",
 	"StockKeeperRequestScreenMixin",
-	"ValueSettingsClientMixin"
+	"ValueSettingsClientMixin",
+	"WiFiEffectPacketMixin"
   ],
   "injectors": {
 	"defaultRequire": 1

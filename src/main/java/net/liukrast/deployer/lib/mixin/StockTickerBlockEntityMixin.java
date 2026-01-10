@@ -58,10 +58,11 @@ public abstract class StockTickerBlockEntityMixin extends StockCheckingBlockEnti
     }
 
     @Override
-    public void deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> requests, String address) {
-        super.deployer$broadcastAllPackageRequest(defaultOrder, requestType, requests, address);
+    public boolean deployer$broadcastAllPackageRequest(PackageOrderWithCrafts defaultOrder, LogisticallyLinkedBehaviour.RequestType requestType, Map<StockInventoryType<?, ?, ?>, GenericOrderContained<?>> requests, String address) {
+        boolean result = super.deployer$broadcastAllPackageRequest(defaultOrder, requestType, requests, address);
         previouslyUsedAddress = address;
         notifyUpdate();
+        return result;
     }
 
     @Override
@@ -112,7 +113,7 @@ public abstract class StockTickerBlockEntityMixin extends StockCheckingBlockEnti
         deployer$mappedInfo.getNewlyReceivedStockSnapshot(type).addAll(stacks);
 
         if(!endOfTransmission) return;
-        deployer$mappedInfo.setLastClientsideStockSnapshotAsSummary(type, type.networkHandler().create());
+        deployer$mappedInfo.setLastClientsideStockSnapshotAsSummary(type, type.networkHandler().createSummary());
         deployer$mappedInfo.setLastClientsideStockSnapshot(type, new ArrayList<>());
 
         for(V stack : deployer$mappedInfo.getNewlyReceivedStockSnapshot(type))
