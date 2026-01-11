@@ -120,7 +120,7 @@ dependencies {
     implementation fileTree(dir: "${rootDir}/libs", include: ['*.jar'])
 
     //Optional dependency
-    implementation "maven.modrinth:jade:${project.jade_version}"
+    implementation "maven.modrinth:jade:${jade_version}"
 
 }
 
