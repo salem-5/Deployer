@@ -25,6 +25,7 @@
 	"GoggleOverlayRendererMixin",
 	"KineticBlockEntityAccessor",
 	"LogisticallyLinkedBehaviourMixin",
+	"LogisticallyLinkedClientHandlerMixin",
 	"LogisticsManagerAccessor",
 	"PackageItemMixin",
 	"PackagerBlockEntityAccessor",
@@ -44,6 +45,7 @@
 	"StockCheckingBlockEntityMixin",
 	"StockTickerBlockEntityAccessor",
 	"StockTickerBlockEntityMixin",
+	"StockTickerBlockMixin",
 	"VersionedInventoryTrackerBehaviourMixin"
   ],
   "client": [

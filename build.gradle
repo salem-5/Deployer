@@ -15,6 +15,7 @@ repositories {
     maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
     maven { url = "https://maven.blamejared.com/"}
     maven { url = "https://cursemaven.com"}
+    maven { url = "https://maven.liukrast.net" }
     flatDir {
         dirs 'libs'
     }
@@ -30,10 +31,6 @@ java {
     withSourcesJar()
 }
 
-sourceSets {
-    test
-}
-
 neoForge {
     // Specify the version of NeoForge to use.
     version = project.neo_version
@@ -42,10 +39,6 @@ neoForge {
         mappingsVersion = project.parchment_mappings_version
         minecraftVersion = project.parchment_minecraft_version
     }
-
-    // This line is optional. Access Transformers are automatically detected
-    // accessTransformers = project.files('src/main/resources/META-INF/accesstransformer.cfg')
-    addModdingDependenciesTo sourceSets.test
 
     // Default run configurations.
     // These can be tweaked, removed, or duplicated as needed.
@@ -103,10 +96,6 @@ neoForge {
         "${mod_id}" {
             sourceSet(sourceSets.main)
         }
-
-        repackaged {
-            sourceSet(sourceSets.test)
-        }
     }
 }
 
@@ -120,6 +109,7 @@ dependencies {
     implementation("com.tterrag.registrate:Registrate:${registrate_version}")
 
     implementation(jarJar("io.github.llamalad7:mixinextras-neoforge:0.5.0"))
+    implementation("net.liukrast:repackaged-1.21.1:0.0.2")
 
     // compile against the JEI API but do not include it at runtime
     compileOnly("mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}")
@@ -127,7 +117,6 @@ dependencies {
     runtimeOnly("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
 
     implementation fileTree(dir: "${rootDir}/libs", include: ['*.jar'])
-
 
 }
 
@@ -154,28 +143,6 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 // this works with both building through Gradle and the IDE.
 sourceSets.main.resources.srcDir generateModMetadata
 // To avoid having to run "generateModMetadata" manually, make it run on every project reload
-neoForge.ideSyncTask generateModMetadata
-var generateTestMetadata = tasks.register("generateTestMetadata", ProcessResources) {
-    var replaceProperties = [
-            minecraft_version      : minecraft_version,
-            minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            loader_version_range   : loader_version_range,
-            mod_id                 : mod_id,
-            mod_name               : mod_name,
-            mod_license            : mod_license,
-            mod_version            : mod_version,
-            mod_authors            : mod_authors,
-            mod_description        : mod_description,
-            create_version_range   : create_version_range
-    ]
-    inputs.properties replaceProperties
-    expand replaceProperties
-    from "src/test/templates"
-    into "build/generated/sources/testMetadata"
-}
-sourceSets.test.resources.srcDir generateTestMetadata
-neoForge.ideSyncTask generateTestMetadata
 
 // Example configuration to allow publishing using the maven-publish plugin
 publishing {

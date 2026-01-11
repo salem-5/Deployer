@@ -14,18 +14,23 @@ import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelConnection
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelPosition;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBlockItem;
 import net.createmod.catnip.codecs.CatnipCodecUtils;
+import net.liukrast.deployer.lib.logistics.LogisticallyLinked;
 import net.liukrast.deployer.lib.logistics.board.AbstractPanelBehaviour;
 import net.liukrast.deployer.lib.logistics.board.connection.PanelConnection;
 import net.liukrast.deployer.lib.mixinExtensions.FPBExtension;
 import net.liukrast.deployer.lib.registry.DeployerPanelConnections;
 import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -48,6 +53,10 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
     /* SHADOWS */
     @Shadow public Map<FactoryPanelPosition, FactoryPanelConnection> targetedBy;
     @Shadow @Nullable public static FactoryPanelBehaviour at(BlockAndTintGetter world, FactoryPanelConnection connection) {throw new AssertionError("Mixin injection failed");}
+
+    @Shadow
+    public UUID network;
+
     /* IMPL METHODS */
     @Override public Map<BlockPos, FactoryPanelConnection> deployer$getExtra() {return deployer$targetedByExtra;}
 
@@ -269,5 +278,14 @@ public abstract class FactoryPanelBehaviourMixin implements FPBExtension {
     @ModifyExpressionValue(method = "onShortInteract", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
     private Collection<FactoryPanelConnection> onShortInteract(Collection<FactoryPanelConnection> original) {
         return Stream.concat(original.stream(), deployer$targetedByExtra.values().stream()).collect(Collectors.toSet());
+    }
+
+    @Definition(id = "heldItem", local = @Local(type = ItemStack.class, name = "heldItem"))
+    @Definition(id = "getItem", method = "Lnet/minecraft/world/item/ItemStack;getItem()Lnet/minecraft/world/item/Item;")
+    @Definition(id = "LogisticallyLinkedBlockItem", type = LogisticallyLinkedBlockItem.class)
+    @Expression("heldItem.getItem() instanceof LogisticallyLinkedBlockItem")
+    @ModifyExpressionValue(method = "onShortInteract", at = @At("MIXINEXTRAS:EXPRESSION"))
+    private boolean onShortInteract(boolean original, @Local(name = "heldItem") ItemStack heldItem) {
+        return original || heldItem.getItem() instanceof LogisticallyLinked;
     }
 }
