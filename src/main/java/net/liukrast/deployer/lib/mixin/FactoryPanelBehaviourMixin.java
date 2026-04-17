@@ -206,6 +206,7 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
             @Share("future_consolidated") LocalRef<Map<UUID, Map<ItemStack, FactoryPanelBehaviour.ItemStackConnections>>> future$consolidated,
             @Share("consolidated") LocalRef<Map<StockInventoryType<?,?,?>, Map<UUID, Map<?, GenericConnections<?>>>>> consolidated
     ) {
+
         realTargetedEmpty.set(true);
         consolidated.set(new HashMap<>());
         future$consolidated.set(new HashMap<>());
@@ -215,6 +216,11 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
                 .filter(e -> {
                     var connection = e.getValue();
                     FactoryPanelBehaviour source = at(getWorld(), connection);
+                    if(!(source instanceof AbstractPanelBehaviour)) {
+                        if(((FPCExtension)connection).deployer$getLinkMode() == null) {
+                            ((FPCExtension)connection).deployer$setLinkMode(DeployerPanelConnections.STOCK_CONNECTION.get());
+                        }
+                    }
                     var pc = ProvidesConnection.getCurrentConnection(connection, () -> ProvidesConnection.getPossibleConnections(source, this).stream().findFirst().orElse(null));
                     if(pc == null || pc != DeployerPanelConnections.STOCK_CONNECTION.get()) return false;
                     PanelValue<StockConnection<?>> result = AbstractPanelBehaviour.getValue(connection, DeployerPanelConnections.STOCK_CONNECTION.get(), FactoryPanelBehaviour.class.cast(this));
