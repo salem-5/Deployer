@@ -18,12 +18,10 @@ import com.simibubi.create.content.logistics.factoryBoard.*;
 import com.simibubi.create.content.logistics.packager.PackagerBlockEntity;
 import com.simibubi.create.content.logistics.packager.PackagingRequest;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
-import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBlockItem;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
 import net.createmod.catnip.codecs.CatnipCodecUtils;
-import net.liukrast.deployer.lib.logistics.LogisticallyLinked;
 import net.liukrast.deployer.lib.logistics.board.AbstractPanelBehaviour;
 import net.liukrast.deployer.lib.logistics.board.GenericConnections;
 import net.liukrast.deployer.lib.logistics.board.connection.*;
@@ -109,9 +107,9 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
     @SuppressWarnings("AddedMixinMembersNamePattern")
     @Override
     public void addConnections(PanelConnectionBuilder builder) {
-        builder.registerBoth(DeployerPanelConnections.STOCK_CONNECTION, () -> p -> {});
-        builder.registerBoth(DeployerPanelConnections.REDSTONE, () -> this.satisfied && count != 0 ? 15 : 0);
-        builder.registerBoth(DeployerPanelConnections.INTEGER, this::getLevelInStorage);
+        builder.registerBoth(DeployerPanelConnections.STOCK_CONNECTION, () -> null);
+        builder.registerBoth(DeployerPanelConnections.REDSTONE, () -> this.satisfied && count != 0);
+        builder.registerBoth(DeployerPanelConnections.NUMBERS, () -> (float)getLevelInStorage());
         builder.registerBoth(DeployerPanelConnections.STRING, () -> {
             var source = AllDisplaySources.GAUGE_STATUS.get().createEntry(getWorld(), getPanelPosition());
             return source == null ? null : source.getFirst() + source.getValue().getString();
@@ -147,9 +145,25 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
     }
 
     // Skips the default tick functions from the factory gauge
-    @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/foundation/blockEntity/behaviour/filtering/FilteringBehaviour;tick()V", shift = At.Shift.AFTER), cancellable = true)
+    @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;isClientSide()Z"), cancellable = true)
     private void tick(CallbackInfo ci) {
+
+
         if(FactoryPanelBehaviour.class.cast(this) instanceof AbstractPanelBehaviour) ci.cancel();
+    }
+
+    @Inject(method = "lazyTick", at = @At("RETURN"))
+    private void lazyTick(CallbackInfo ci) {
+        deployer$targetedByExtra.keySet().removeIf(panel -> {
+            boolean found = false;
+            for (var pc : DeployerRegistries.PANEL_CONNECTION) {
+                if (pc.getListener(getWorld().getBlockState(panel).getBlock()) != null) {
+                    found = true;
+                    break;
+                }
+            }
+            return !found;
+        });
     }
 
     // Prevents null values from making the game crash
@@ -187,11 +201,15 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
     @Inject(method = "tickRequests", at = @At("HEAD"))
     private void tickRequests(
             CallbackInfo ci,
-            @Share("real_targeted_by") LocalRef<Map<FactoryPanelPosition, FactoryPanelConnection>> realTargets,
+            @Share("real_targeted_by") LocalRef<Map<FactoryPanelPosition, FactoryPanelConnection>> realTargeted,
+            @Share("real_targeted_empty") LocalBooleanRef realTargetedEmpty,
+            @Share("future_consolidated") LocalRef<Map<UUID, Map<ItemStack, FactoryPanelBehaviour.ItemStackConnections>>> future$consolidated,
             @Share("consolidated") LocalRef<Map<StockInventoryType<?,?,?>, Map<UUID, Map<?, GenericConnections<?>>>>> consolidated
     ) {
+        realTargetedEmpty.set(true);
         consolidated.set(new HashMap<>());
-        realTargets.set(targetedBy
+        future$consolidated.set(new HashMap<>());
+        realTargeted.set(targetedBy
                 .entrySet()
                 .stream()
                 .filter(e -> {
@@ -199,9 +217,11 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
                     FactoryPanelBehaviour source = at(getWorld(), connection);
                     var pc = ProvidesConnection.getCurrentConnection(connection, () -> ProvidesConnection.getPossibleConnections(source, this).stream().findFirst().orElse(null));
                     if(pc == null || pc != DeployerPanelConnections.STOCK_CONNECTION.get()) return false;
-                    PanelValue<StockConnection> result = AbstractPanelBehaviour.getValue(connection, DeployerPanelConnections.STOCK_CONNECTION.get(), FactoryPanelBehaviour.class.cast(this));
-                    if(result instanceof PanelValue.Present<StockConnection>(StockConnection value)) value.registerStockOrders(new StockConnection.ItemsToOrderProvider(consolidated.get(), source, connection));
-                    return true;
+                    PanelValue<StockConnection<?>> result = AbstractPanelBehaviour.getValue(connection, DeployerPanelConnections.STOCK_CONNECTION.get(), FactoryPanelBehaviour.class.cast(this));
+                    if(result instanceof PanelValue.Present<StockConnection<?>>(StockConnection<?> value))
+                        value.register(future$consolidated.get(), consolidated.get(), source, connection);
+                    realTargetedEmpty.set(false);
+                    return !(source instanceof AbstractPanelBehaviour);
                 })
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -225,6 +245,11 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
         return realTargets.get();
     }
 
+    @ModifyExpressionValue(method = "tickRequests", at = @At(value = "INVOKE", target = "Ljava/util/Map;isEmpty()Z"))
+    private boolean tickRequests(boolean original, @Share("real_targeted_empty") LocalBooleanRef realTargetedEmpty) {
+        return realTargetedEmpty.get();
+    }
+
     @Inject(method = "tickRequests", at = @At(value = "INVOKE", target = "Lcom/google/common/collect/HashMultimap;create()Lcom/google/common/collect/HashMultimap;"))
     private void tickRequests(
             CallbackInfo ci,
@@ -236,7 +261,15 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
         toRequest.set(new HashMap<>());
         savedUUIDs.set(new HashMap<>());
         for (var e : consolidated.get().entrySet()) deployer$tickRequests(e.getKey(), e.getValue(), failed, toRequest.get().computeIfAbsent(e.getKey(), k -> HashMultimap.create()));
+    }
 
+    @ModifyExpressionValue(method = "tickRequests", at = @At(value = "NEW", target = "()Ljava/util/HashMap;"))
+    private HashMap<UUID, Map<ItemStack, FactoryPanelBehaviour.ItemStackConnections>> tickRequests(
+            HashMap<UUID, Map<ItemStack, FactoryPanelBehaviour.ItemStackConnections>> original,
+            @Share("future_consolidated") LocalRef<Map<UUID, Map<ItemStack, FactoryPanelBehaviour.ItemStackConnections>>> future$consolidated
+    ) {
+        original.putAll(future$consolidated.get());
+        return original;
     }
 
     @Unique
@@ -344,9 +377,8 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
                 e.values().forEach(pr -> ((PRExtension)(Object)pr).deployer$flag());
             }
     }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
     @Unique
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private <K,V,H> void deployer$tickRequests(StockInventoryType<K,V,H> type, Map<UUID, Collection<?>> asMap$raw, List<Multimap<AbstractPackagerBlockEntity<?,?,?>, GenericPackagingRequest<?>>> requests$raw, Map<UUID, Integer> savedUUIDs) {
         Map<UUID, Collection<V>> asMap = (Map) asMap$raw;
         List<Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>>> requests = (List)requests$raw;
@@ -358,8 +390,8 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
         }
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     @Unique
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private <K,V,H> void deployer$tickRequests(Multimap<AbstractPackagerBlockEntity<?,?,?>, GenericPackagingRequest<?>> entry$raw, int index, boolean isLast) {
         Multimap<AbstractPackagerBlockEntity<K,V,H>, GenericPackagingRequest<V>> entry = (Multimap)entry$raw;
         LogisticsGenericManager.performPackageRequests(entry, index, isLast);
@@ -380,6 +412,8 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
     }
 
     /* ADDING/REMOVING CONNECTIONS */
+
+    // Adds extra connections
     @Inject(method = "addConnection", at = @At("HEAD"), cancellable = true)
     private void addConnection(FactoryPanelPosition fromPos, CallbackInfo ci) {
         var i = FactoryPanelBehaviour.class.cast(this);
@@ -389,7 +423,15 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
                 .map(c -> c.getListener(fromState.getBlock()))
                 .anyMatch(Objects::nonNull)
         ) {
-            deployer$targetedByExtra.put(fromPos.pos(), new FactoryPanelConnection(fromPos, 1));
+            var conn = new FactoryPanelConnection(fromPos, 1);
+            deployer$targetedByExtra.put(fromPos.pos(), conn);
+            var pc = ProvidesConnection.getCurrentConnection(conn, () -> getInputConnections()
+                    .stream()
+                    .filter(c -> c.getListener(fromState.getBlock()) != null)
+                    .findFirst().orElse(null));
+            ((FPCExtension)conn).deployer$setLinkMode(pc);
+            if(FactoryPanelBehaviour.class.cast(this) instanceof AbstractPanelBehaviour apb)
+                apb.onConnectionAdded(conn);
             i.blockEntity.notifyUpdate();
             ci.cancel();
         }
@@ -442,12 +484,14 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
         FactoryPanelConnection conn = ((FactoryPanelConnection)original);
         if(link instanceof AbstractPanelSupportBehaviour apsb) {
             Supplier<PanelConnection<?>> def = apsb.isOutput() ?
-                    () -> ProvidesConnection.getPossibleConnections(this, apsb).stream().findFirst().orElse(null) :
-                    () -> ProvidesConnection.getPossibleConnections(apsb, this).stream().findFirst().orElse(null);
+                    () -> ProvidesConnection.getPossibleConnections(apsb, this).stream().findFirst().orElse(null) :
+                    () -> ProvidesConnection.getPossibleConnections(this, apsb).stream().findFirst().orElse(null);
             var pc = ProvidesConnection.getCurrentConnection(conn, def);
             ((FPCExtension)conn).deployer$setLinkMode(pc);
         } else if(link.isOutput() && getInputConnections().contains(DeployerPanelConnections.REDSTONE.get()) || (!link.isOutput() && getOutputConnections().contains(DeployerPanelConnections.REDSTONE.get())))
             ((FPCExtension)conn).deployer$setLinkMode(DeployerPanelConnections.REDSTONE.get());
+        if(FactoryPanelBehaviour.class.cast(this) instanceof AbstractPanelBehaviour apb)
+            apb.onConnectionAdded(conn);
         return original;
     }
 
@@ -464,6 +508,8 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
         FactoryPanelConnection conn = ((FactoryPanelConnection)original);
         var pc = ProvidesConnection.getCurrentConnection(conn, () -> ProvidesConnection.getPossibleConnections(source, this).stream().findFirst().orElse(null));
         ((FPCExtension)conn).deployer$setLinkMode(pc);
+        if(FactoryPanelBehaviour.class.cast(this) instanceof AbstractPanelBehaviour apb)
+            apb.onConnectionAdded(conn);
         return original;
     }
 
@@ -501,7 +547,7 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
     private boolean checkForRedstoneInput(boolean shouldPower) {
         var li = deployer$getAllValues(DeployerPanelConnections.REDSTONE.get());
         if(li == null) return false;
-        return li.stream().anyMatch(k -> k > 0);
+        return li.stream().anyMatch(k -> k);
     }
 
     @Definition(id = "shouldPower", local = @Local(type = boolean.class))
@@ -509,11 +555,11 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
     @Expression("shouldPower == this.redstonePowered")
     @ModifyExpressionValue(method = "checkForRedstoneInput", at = @At("MIXINEXTRAS:EXPRESSION"))
     private boolean checkForRedstoneInput$1(boolean original) {
-        var nums = deployer$getAllValues(DeployerPanelConnections.INTEGER.get());
+        var nums = deployer$getAllValues(DeployerPanelConnections.NUMBERS.get());
         var strs = deployer$getAllValues(DeployerPanelConnections.STRING.get());
         if (nums == null || strs == null) return false;
 
-        Integer total = nums.isEmpty() ? null : nums.stream().reduce(0, Integer::sum);
+        Integer total = nums.isEmpty() ? null : (int)(float)nums.stream().reduce(0f, Float::sum);
         String fAddress = strs.isEmpty() ? null : String.join("", strs);
 
         boolean changed = original
@@ -527,41 +573,5 @@ public abstract class FactoryPanelBehaviourMixin extends FilteringBehaviour impl
         }
 
         return false;
-    }
-
-    /* INTERACTION */
-    @ModifyExpressionValue(method = "onShortInteract", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;isEmpty()Z", ordinal = 0))
-    private boolean onShortInteract(boolean original) {
-        var instance = FactoryPanelBehaviour.class.cast(this);
-        return !(instance instanceof AbstractPanelBehaviour) && original;
-    }
-
-    @Definition(id = "heldItem", local = @Local(type = ItemStack.class))
-    @Definition(id = "getItem", method = "Lnet/minecraft/world/item/ItemStack;getItem()Lnet/minecraft/world/item/Item;")
-    @Definition(id = "LogisticallyLinkedBlockItem", type = LogisticallyLinkedBlockItem.class)
-    @Expression("heldItem.getItem() instanceof LogisticallyLinkedBlockItem")
-    @ModifyExpressionValue(method = "onShortInteract", at = @At("MIXINEXTRAS:EXPRESSION"))
-    private boolean onShortInteract$1(boolean original) {
-        var instance = FactoryPanelBehaviour.class.cast(this);
-        return original && !(instance instanceof AbstractPanelBehaviour);
-    }
-
-    @ModifyExpressionValue(method = "onShortInteract", at = @At(value = "INVOKE", target = "Ljava/util/Map;size()I"))
-    private int onShortInteract(int original) {
-        return original + deployer$targetedByExtra.size();
-    }
-
-    @ModifyExpressionValue(method = "onShortInteract", at = @At(value = "INVOKE", target = "Ljava/util/Map;values()Ljava/util/Collection;"))
-    private Collection<FactoryPanelConnection> onShortInteract(Collection<FactoryPanelConnection> original) {
-        return Stream.concat(original.stream(), deployer$targetedByExtra.values().stream()).collect(Collectors.toSet());
-    }
-
-    @Definition(id = "heldItem", local = @Local(type = ItemStack.class, name = "heldItem"))
-    @Definition(id = "getItem", method = "Lnet/minecraft/world/item/ItemStack;getItem()Lnet/minecraft/world/item/Item;")
-    @Definition(id = "LogisticallyLinkedBlockItem", type = LogisticallyLinkedBlockItem.class)
-    @Expression("heldItem.getItem() instanceof LogisticallyLinkedBlockItem")
-    @ModifyExpressionValue(method = "onShortInteract", at = @At("MIXINEXTRAS:EXPRESSION"))
-    private boolean onShortInteract(boolean original, @Local(name = "heldItem") ItemStack heldItem) {
-        return original || heldItem.getItem() instanceof LogisticallyLinked;
     }
 }

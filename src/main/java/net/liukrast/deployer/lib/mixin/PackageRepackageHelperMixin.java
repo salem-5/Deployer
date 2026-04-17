@@ -21,7 +21,6 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
-import org.apache.commons.compress.utils.Lists;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -60,7 +59,7 @@ public abstract class PackageRepackageHelperMixin implements PRHExtension {
         if (!(box.getItem() instanceof GenericPackageItem item)) return value;
         return deployer$collectedPackages
                 .computeIfAbsent(item.getType(), $ -> new HashMap<>())
-                .computeIfAbsent(collectedOrderId, $ -> Lists.newArrayList());
+                .computeIfAbsent(collectedOrderId, $ -> new ArrayList<>());
     }
 
     @WrapOperation(method = "addPackageFragment", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/packager/repackager/PackageRepackageHelper;isOrderComplete(I)Z"))

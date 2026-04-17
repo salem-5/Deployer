@@ -12,7 +12,7 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * A panel behaviour representing a scrollable selection of options.
- *
+ * <p>
  * Each option is an enum value implementing {@link INamedIconOptions}, allowing
  * the panel to display a selectable icon and label for each value.
  *
@@ -74,6 +74,6 @@ public abstract class ScrollOptionPanelBehaviour<E extends Enum<E> & INamedIconO
      * @return the selected enum value
      */
     public E get() {
-        return options[value];
+        return options[getValue()];
     }
 }

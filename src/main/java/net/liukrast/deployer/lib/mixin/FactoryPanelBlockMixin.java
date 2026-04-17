@@ -7,6 +7,9 @@ import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
+import com.llamalad7.mixinextras.sugar.Share;
+import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBehaviour;
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlock;
@@ -45,6 +48,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -80,8 +84,14 @@ public abstract class FactoryPanelBlockMixin extends Block implements IBE<Factor
 
     @Override
     protected @NotNull List<ItemStack> getDrops(@NotNull BlockState state, LootParams.@NotNull Builder params) {
-        if(params.getParameter(LootContextParams.BLOCK_ENTITY) instanceof FactoryPanelBlockEntity fpbe)
-            return ((FPBEExtension)fpbe).deployer$getExtraDrops();
+        if(params.getParameter(LootContextParams.BLOCK_ENTITY) instanceof FactoryPanelBlockEntity fpbe) {
+            List<ItemStack> out = new ArrayList<>();
+            for(var panel : fpbe.panels.values()) {
+                if(!panel.active) continue;
+                out.add(panel instanceof AbstractPanelBehaviour ab ? ab.getItem().getDefaultInstance() : AllBlocks.FACTORY_GAUGE.asStack());
+            }
+            return out.isEmpty() ? ((FPBEExtension)fpbe).deployer$getExtraDrops() : out;
+        }
         return List.of();
     }
 
@@ -173,15 +183,25 @@ public abstract class FactoryPanelBlockMixin extends Block implements IBE<Factor
     /* ON DESTROYED BY PLAYER */
     /* TRY DESTROY SUB PANEL FIRST */
     @Inject(method = "lambda$tryDestroySubPanelFirst$3", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBlockEntity;activePanels()I"))
-    private static void lambda$tryDestroySubPanelFirst$3(FactoryPanelBlock.PanelSlot destroyedSlot, Player player, Level level, BlockPos pos, FactoryPanelBlockEntity fpbe, CallbackInfoReturnable<InteractionResult> cir) {
+    private static void lambda$tryDestroySubPanelFirst$3(
+            FactoryPanelBlock.PanelSlot destroyedSlot,
+            Player player,
+            Level level,
+            BlockPos pos,
+            FactoryPanelBlockEntity fpbe,
+            CallbackInfoReturnable<InteractionResult> cir,
+            @Share("item_stack") LocalRef<ItemStack> localStack
+    ) {
         var behaviour = fpbe.panels.get(destroyedSlot);
-        if(!(behaviour instanceof AbstractPanelBehaviour panelBehaviour)) extra_gauges$tryDestroySubPanelFirst$local$itemStack = null;
-        else extra_gauges$tryDestroySubPanelFirst$local$itemStack = panelBehaviour.getItem().getDefaultInstance();
+        if(behaviour instanceof AbstractPanelBehaviour panelBehaviour) localStack.set(panelBehaviour.getItem().getDefaultInstance());
     }
 
     @ModifyArg(method = "lambda$tryDestroySubPanelFirst$3", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBlock;popResource(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/item/ItemStack;)V"))
-    private static ItemStack lambda$tryDestroySubPanelFirst$3(ItemStack stack) {
-        return extra_gauges$tryDestroySubPanelFirst$local$itemStack == null ? stack : extra_gauges$tryDestroySubPanelFirst$local$itemStack;
+    private static ItemStack lambda$tryDestroySubPanelFirst$3(
+            ItemStack stack,
+            @Share("item_stack") LocalRef<ItemStack> localStack
+    ) {
+        return localStack.get() == null ? stack : localStack.get();
     }
     /* IS SIGNAL SOURCE */
     /* GET SIGNAL */

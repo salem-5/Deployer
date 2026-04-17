@@ -1,4 +1,4 @@
-package net.liukrast.deployer.lib.logistics.board;
+package net.liukrast.deployer.lib.logistics.board.screen;
 
 import com.google.common.collect.Lists;
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelConfigurationPacket;
@@ -11,6 +11,7 @@ import net.createmod.catnip.gui.AbstractSimiScreen;
 import net.createmod.catnip.gui.element.GuiGameElement;
 import net.createmod.catnip.platform.CatnipServices;
 import net.liukrast.deployer.lib.DeployerConstants;
+import net.liukrast.deployer.lib.logistics.board.AbstractPanelBehaviour;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -31,7 +32,7 @@ public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends Abstract
     @ApiStatus.Internal
     public static final ResourceLocation TEXTURE = DeployerConstants.id("textures/gui/generic_gauge.png");
 
-    protected final boolean canConnect,canMove,canDelete;
+    protected final boolean canConnect,canMove;
 
     /**
      * The panel behavior associated with this screen.
@@ -48,11 +49,11 @@ public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends Abstract
      * @param behaviour the panel behavior to display
      */
     public BasicPanelScreen(T behaviour) {
-        this(behaviour, true, true, true);
+        this(behaviour, true, true);
     }
 
-    public BasicPanelScreen(T behaviour, boolean canConnect, boolean canMove, boolean canDelete) {
-        this(behaviour.getDisplayName(), behaviour, canConnect, canMove, canDelete);
+    public BasicPanelScreen(T behaviour, boolean canConnect, boolean canMove) {
+        this(behaviour.getDisplayName(), behaviour, canConnect, canMove);
     }
 
     /**
@@ -62,15 +63,14 @@ public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends Abstract
      * @param behaviour the panel behavior to display
      */
     public BasicPanelScreen(Component component, T behaviour) {
-        this(component, behaviour, true, true, true);
+        this(component, behaviour, true, true);
     }
 
-    public BasicPanelScreen(Component component, T behaviour, boolean canConnect, boolean canMove, boolean canDelete) {
+    public BasicPanelScreen(Component component, T behaviour, boolean canConnect, boolean canMove) {
         super(component);
         this.behaviour = behaviour;
         this.canConnect = canConnect;
         this.canMove = canMove;
-        this.canDelete = canDelete;
     }
 
     /**
@@ -131,23 +131,27 @@ public class BasicPanelScreen<T extends AbstractPanelBehaviour> extends Abstract
                 .component());
         addRenderableWidget(deleteButton);
 
-        IconButton newInputButton = new IconButton(x + 7, y + sizeY - 24, AllIcons.I_ADD);
-        newInputButton.withCallback(() -> {
-            FactoryPanelConnectionHandler.startConnection(behaviour);
-            minecraft.setScreen(null);
-        });
-        newInputButton.setToolTip(CreateLang.translate("gui.factory_panel.connect_input")
-                .component());
-        addRenderableWidget(newInputButton);
+        if(canConnect) {
+            IconButton newInputButton = new IconButton(x + 7, y + sizeY - 24, AllIcons.I_ADD);
+            newInputButton.withCallback(() -> {
+                FactoryPanelConnectionHandler.startConnection(behaviour);
+                minecraft.setScreen(null);
+            });
+            newInputButton.setToolTip(CreateLang.translate("gui.factory_panel.connect_input")
+                    .component());
+            addRenderableWidget(newInputButton);
+        }
 
-        IconButton relocateButton = new IconButton(x + 29, y + sizeY - 24, AllIcons.I_MOVE_GAUGE);
-        relocateButton.withCallback(() -> {
-            FactoryPanelConnectionHandler.startRelocating(behaviour);
-            minecraft.setScreen(null);
-        });
-        relocateButton.setToolTip(CreateLang.translate("gui.factory_panel.relocate")
-                .component());
-        addRenderableWidget(relocateButton);
+        if(canMove) {
+            IconButton relocateButton = new IconButton(x + 29, y + sizeY - 24, AllIcons.I_MOVE_GAUGE);
+            relocateButton.withCallback(() -> {
+                FactoryPanelConnectionHandler.startRelocating(behaviour);
+                minecraft.setScreen(null);
+            });
+            relocateButton.setToolTip(CreateLang.translate("gui.factory_panel.relocate")
+                    .component());
+            addRenderableWidget(relocateButton);
+        }
     }
 
     /**

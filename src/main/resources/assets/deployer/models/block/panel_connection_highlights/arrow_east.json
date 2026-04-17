@@ -8,6 +8,7 @@
 		{
 			"from": [-1, 0.08, -3],
 			"to": [7, 0.13, 3],
+			"shade": false,
 			"rotation": {"angle": 0, "axis": "y", "origin": [1, 0, -2]},
 			"faces": {
 				"up": {"uv": [7, 0, 15, 6], "rotation": 180, "texture": "#1"},

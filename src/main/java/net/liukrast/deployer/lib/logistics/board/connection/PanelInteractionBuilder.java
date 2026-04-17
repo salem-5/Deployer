@@ -14,9 +14,11 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 public class PanelInteractionBuilder {
-    private final Map<String, TriPredicate<Level, BlockPos, BlockState>> map = new HashMap<>();
+    private final Map<String, TriPredicate<Level, BlockPos, BlockState>> map;
 
-    public PanelInteractionBuilder(Map<String, TriPredicate<Level, BlockPos, BlockState>> map) {}
+    public PanelInteractionBuilder(Map<String, TriPredicate<Level, BlockPos, BlockState>> map) {
+        this.map = map;
+    }
 
     public void register(String key, TriPredicate<Level, BlockPos, BlockState> predicate) {
         map.put(key, predicate);

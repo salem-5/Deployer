@@ -9,6 +9,7 @@
 		{
 			"from": [-2, 0.08, -1],
 			"to": [2, 0.13, 9],
+			"shade": false,
 			"faces": {
 				"up": {"uv": [10, 6, 14, 16], "rotation": 180, "texture": "#0"},
 				"down": {"uv": [10, 6, 14, 16], "rotation": 180, "texture": "#0"}

@@ -8,8 +8,6 @@ import net.liukrast.deployer.lib.logistics.GenericPackageOrderData;
 import net.liukrast.deployer.lib.logistics.packagerLink.GenericRequestPromise;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrder;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -135,8 +133,8 @@ public abstract class StockInventoryType<K,V,H> {
         int getSlots(H handler); // returns the slots/tanks for items/fluids
         V getStackInSlot(H handler, int slot);
         int maxCountPerSlot();
-        V extract(H handler, V value, boolean simulate);
-        int fill(H handler, V value, boolean simulate);
+        V extract(H handler, V value, boolean simulate, AbstractPackagerBlockEntity<K,V,H> packager);
+        int fill(H handler, V value, boolean simulate, AbstractPackagerBlockEntity<K,V,H> packager);
         V setInSlot(H handler, int slot, V value, boolean simulate);
         boolean isBulky(K key);
         H create(int i);
@@ -174,7 +172,7 @@ public abstract class StockInventoryType<K,V,H> {
 
     public abstract BlockCapability<H, @Nullable Direction> getBlockCapability();
 
-    public final SimpleRegistry<Block, GenericUnpackingHandler<V>> registry = SimpleRegistry.create();
+    public final SimpleRegistry<Block, GenericUnpackingHandler<K,V,H>> registry = SimpleRegistry.create();
 
     @SuppressWarnings({"UnusedReturnValue", "SameParameterValue"})
     private V insertItemStacked(H inventory, V stack, boolean simulate) {
@@ -230,7 +228,7 @@ public abstract class StockInventoryType<K,V,H> {
         }
     }
 
-    public GenericUnpackingHandler<V> defaultUnpackProcedure = (level, pos, state, side, items, orderContext, simulate) -> {
+    public GenericUnpackingHandler<K,V,H> defaultUnpackProcedure = (level, pos, state, side, items, orderContext, simulate, packager) -> {
         BlockEntity targetBE = level.getBlockEntity(pos);
         if (targetBE == null)
             return false;

@@ -9,6 +9,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public interface GenericUnpackingHandler<V> {
-    boolean unpack(Level level, BlockPos pos, BlockState state, Direction side, List<V> items, @Nullable GenericOrderContained<V> orderContext, boolean simulate);
+public interface GenericUnpackingHandler<K, V, H> {
+    boolean unpack(Level level, BlockPos pos, BlockState state, Direction side, List<V> items, @Nullable GenericOrderContained<V> orderContext, boolean simulate, AbstractPackagerBlockEntity<K,V,H> packager);
 }

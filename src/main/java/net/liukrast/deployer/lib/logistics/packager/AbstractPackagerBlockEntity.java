@@ -281,7 +281,7 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
                     //noinspection DataFlowIssue
                     int initialCount = requestQueue ? Math.min(handler.maxCountPerSlot(), nextRequest.getCount()) : handler.maxCountPerSlot();
 
-                    V extracted = handler.extract(targetInv, valueHandler.copyWithCount(handler.getStackInSlot(targetInv, slot), initialCount), true);
+                    V extracted = handler.extract(targetInv, valueHandler.copyWithCount(handler.getStackInSlot(targetInv, slot), initialCount), true, this);
                     if (valueHandler.isEmpty(extracted))
                         continue;
                     if(requestQueue && !valueHandler.hashStrategy().equals(extracted, nextRequest.item()))
@@ -292,9 +292,9 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
                         continue;
 
                     anyItemPresent = true;
-                    int leftovers = handler.fill(extractedItems, valueHandler.copyWithCount(extracted, valueHandler.getCount(extracted)), false);
+                    int leftovers = handler.fill(extractedItems, valueHandler.copyWithCount(extracted, valueHandler.getCount(extracted)), false, this);
                     int transferred = valueHandler.getCount(extracted) -leftovers;
-                    handler.extract(targetInv, valueHandler.copyWithCount(handler.getStackInSlot(targetInv, slot), transferred), false);
+                    handler.extract(targetInv, valueHandler.copyWithCount(handler.getStackInSlot(targetInv, slot), transferred), false, this);
 
                     if (!requestQueue) {
                         if (bulky)
@@ -500,10 +500,10 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
         BlockPos target = worldPosition.relative(facing.getOpposite());
         BlockState targetState = level.getBlockState(target);
 
-        GenericUnpackingHandler<V> handler = type.registry.get(targetState);
-        GenericUnpackingHandler<V> toUse = handler != null ? handler : type.defaultUnpackProcedure;
+        GenericUnpackingHandler<K,V,H> handler = type.registry.get(targetState);
+        GenericUnpackingHandler<K,V,H> toUse = handler != null ? handler : type.defaultUnpackProcedure;
         // note: handler may modify the passed items
-        boolean unpacked = toUse.unpack(level, target, targetState, facing, items, orderContext, simulate);
+        boolean unpacked = toUse.unpack(level, target, targetState, facing, items, orderContext, simulate, this);
 
         if (unpacked && !simulate) {
             previouslyUnwrapped = box;

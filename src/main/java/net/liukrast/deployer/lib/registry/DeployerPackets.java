@@ -3,7 +3,6 @@ package net.liukrast.deployer.lib.registry;
 import net.createmod.catnip.net.base.BasePacketPayload;
 import net.createmod.catnip.net.base.CatnipPacketRegistry;
 import net.liukrast.deployer.lib.DeployerConstants;
-import net.liukrast.deployer.lib.logistics.board.cache.PanelCacheUpdatePacket;
 import net.liukrast.deployer.lib.logistics.board.connection.PanelSpecialSetupPacket;
 import net.liukrast.deployer.lib.logistics.requester.RequesterExtraDataC2SPacket;
 import net.liukrast.deployer.lib.logistics.requester.RequesterExtraDataS2CPacket;
@@ -18,7 +17,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import java.util.Locale;
 
 public enum DeployerPackets implements BasePacketPayload.PacketTypeProvider {
-    PANEL_CACHE_UPDATE(PanelCacheUpdatePacket.class, PanelCacheUpdatePacket.STREAM_CODEC),
     LOGISTICS_STOCK_RESPONSE(LogisticalStockGenericResponsePacket.class, LogisticalStockGenericResponsePacket.STREAM_CODEC),
     LOGISTICS_STOCK_GENERIC_REQUEST(LogisticalStockGenericRequestPacket.class, LogisticalStockGenericRequestPacket.STREAM_CODEC),
     GENERIC_ORDER_REQUEST(GenericOrderRequestPacket.class, GenericOrderRequestPacket.STREAM_CODEC),

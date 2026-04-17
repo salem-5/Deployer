@@ -1,9 +1,20 @@
 package net.liukrast.deployer.lib.helper;
 
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
+import com.simibubi.create.compat.Mods;
+import com.simibubi.create.foundation.gui.RemovedGuiUtils;
+import com.simibubi.create.foundation.mixin.accessor.MouseHandlerAccessor;
+import com.simibubi.create.infrastructure.config.AllConfigs;
+import com.simibubi.create.infrastructure.config.CClient;
+import net.createmod.catnip.gui.element.BoxElement;
+import net.createmod.catnip.gui.element.GuiGameElement;
+import net.createmod.catnip.theme.Color;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
@@ -11,9 +22,12 @@ import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.client.ClientTooltipFlag;
@@ -225,5 +239,87 @@ public class GuiRenderingHelpers {
         }
 
         graphics.renderTooltip(font, tooltip,Optional.empty(), mouseX, mouseY);
+    }
+
+    public static void renderHoveringArea(GuiGraphics graphics, int hoverTicks, DeltaTracker deltaTracker, ItemStack icon, List<Component> tooltip) {
+        var mc = Minecraft.getInstance();
+        PoseStack poseStack = graphics.pose();
+        poseStack.pushPose();
+
+        int tooltipTextWidth = 0;
+        for (FormattedText textLine : tooltip) {
+            int textLineWidth = mc.font.width(textLine);
+            if (textLineWidth > tooltipTextWidth)
+                tooltipTextWidth = textLineWidth;
+        }
+
+        int tooltipHeight = 8;
+        if (tooltip.size() > 1) {
+            tooltipHeight += 2; // gap between title lines and next lines
+            tooltipHeight += (tooltip.size() - 1) * 10;
+        }
+
+        int width = graphics.guiWidth();
+        int height = graphics.guiHeight();
+
+        CClient cfg = AllConfigs.client();
+        int posX = width / 2 + cfg.overlayOffsetX.get();
+        int posY = height / 2 + cfg.overlayOffsetY.get();
+
+        posX = Math.min(posX, width - tooltipTextWidth - 20);
+        posY = Math.min(posY, height - tooltipHeight - 20);
+
+        float fade = Mth.clamp((hoverTicks + deltaTracker.getGameTimeDeltaPartialTick(false)) / 24f, 0, 1);
+        Boolean useCustom = cfg.overlayCustomColor.get();
+        Color colorBackground = useCustom ? new Color(cfg.overlayBackgroundColor.get())
+                : BoxElement.COLOR_VANILLA_BACKGROUND.scaleAlpha(.75f);
+        Color colorBorderTop = useCustom ? new Color(cfg.overlayBorderColorTop.get())
+                : BoxElement.COLOR_VANILLA_BORDER.getFirst().copy();
+        Color colorBorderBot = useCustom ? new Color(cfg.overlayBorderColorBot.get())
+                : BoxElement.COLOR_VANILLA_BORDER.getSecond().copy();
+
+        if (fade < 1) {
+            poseStack.translate(Math.pow(1 - fade, 3) * Math.signum(cfg.overlayOffsetX.get() + .5f) * 8, 0, 0);
+            colorBackground.scaleAlpha(fade);
+            colorBorderTop.scaleAlpha(fade);
+            colorBorderBot.scaleAlpha(fade);
+        }
+
+        GuiGameElement.of(icon)
+                .at(posX + 10, posY - 16, 450)
+                .render(graphics);
+
+        if (!Mods.MODERNUI.isLoaded()) {
+            // default tooltip rendering when modernUI is not loaded
+            RemovedGuiUtils.drawHoveringText(graphics, tooltip, posX, posY, width, height, -1, colorBackground.getRGB(),
+                    colorBorderTop.getRGB(), colorBorderBot.getRGB(), mc.font);
+
+            poseStack.popPose();
+
+            return;
+        }
+
+        /*
+         * special handling for modernUI
+         *
+         * their tooltip handler causes the overlay to jiggle each frame,
+         * if the mouse is moving, guiScale is anything but 1 and exactPositioning is enabled
+         *
+         * this is a workaround to fix this behavior
+         */
+        MouseHandler mouseHandler = Minecraft.getInstance().mouseHandler;
+        Window window = Minecraft.getInstance().getWindow();
+        double guiScale = window.getGuiScale();
+        double cursorX = mouseHandler.xpos();
+        double cursorY = mouseHandler.ypos();
+        ((MouseHandlerAccessor) mouseHandler).create$setXPos(Math.round(cursorX / guiScale) * guiScale);
+        ((MouseHandlerAccessor) mouseHandler).create$setYPos(Math.round(cursorY / guiScale) * guiScale);
+
+        RemovedGuiUtils.drawHoveringText(graphics, tooltip, posX, posY, width, height, -1, colorBackground.getRGB(),
+                colorBorderTop.getRGB(), colorBorderBot.getRGB(), mc.font);
+
+        ((MouseHandlerAccessor) mouseHandler).create$setXPos(cursorX);
+        ((MouseHandlerAccessor) mouseHandler).create$setYPos(cursorY);
+        poseStack.popPose();
     }
 }

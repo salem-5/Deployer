@@ -11,7 +11,7 @@ import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelConnection
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelScreen;
 import net.createmod.catnip.gui.AbstractSimiScreen;
 import net.liukrast.deployer.lib.logistics.board.AbstractPanelBehaviour;
-import net.liukrast.deployer.lib.logistics.board.FakeStack;
+import net.liukrast.deployer.lib.logistics.board.screen.FakeStack;
 import net.liukrast.deployer.lib.logistics.board.connection.ProvidesConnection;
 import net.liukrast.deployer.lib.mixinExtensions.FPSExtension;
 import net.liukrast.deployer.lib.registry.DeployerPanelConnections;
@@ -57,7 +57,7 @@ public abstract class FactoryPanelScreenMixin extends AbstractSimiScreen impleme
             )
     )
     private BigItemStack updateConfigs(ItemStack stack, int count, Operation<BigItemStack> original) {
-        if (behaviour instanceof AbstractPanelBehaviour apb) return new FakeStack<>(apb, count, null);
+        if (behaviour instanceof AbstractPanelBehaviour apb) return new FakeStack<>(apb, count, null, true);
         return original.call(stack, count);
     }
 
@@ -66,9 +66,14 @@ public abstract class FactoryPanelScreenMixin extends AbstractSimiScreen impleme
         var pc = ProvidesConnection.getCurrentConnection(c, () -> null);
         if(!(b instanceof AbstractPanelBehaviour apb)) {
             if(pc == DeployerPanelConnections.STOCK_CONNECTION.get()) return original;
-            else return new FakeStack<>(null, c.amount, pc);
+            else return new FakeStack<>(null, c.amount, pc, false);
         }
-        return new FakeStack<>(apb, c.amount, pc);
+        if(pc != DeployerPanelConnections.STOCK_CONNECTION.get()) return new FakeStack<>(apb, c.amount, pc, true);
+        var opt = apb.getConnectionValue(DeployerPanelConnections.STOCK_CONNECTION.get());
+        if(opt.isEmpty()) return new FakeStack<>(apb, c.amount, pc, true);
+        ItemStack stack = opt.get().getStackValue();
+        if(stack == null) return new FakeStack<>(apb, c.amount, pc, true);
+        return new BigItemStack(stack, original.count);
     }
 
     @ModifyExpressionValue(
@@ -86,7 +91,7 @@ public abstract class FactoryPanelScreenMixin extends AbstractSimiScreen impleme
             @Local(name = "x") int x, @Local(name = "y") int y
     ) {
         if(!original && outputConfig instanceof FakeStack<?> holder) {
-            holder.renderAsOutput(graphics, mouseX, mouseY, x + 160, y + 48, font);
+            holder.renderAsOutput(graphics, mouseX, mouseY, x + 160, y + 48);
             return true;
         }
         return original;
@@ -115,13 +120,13 @@ public abstract class FactoryPanelScreenMixin extends AbstractSimiScreen impleme
     )
     private BigItemStack renderWindow(ItemStack stack, int count, Operation<BigItemStack> original) {
         if(!(behaviour instanceof AbstractPanelBehaviour apb)) return original.call(stack, count);
-        return new FakeStack<>(apb, 1, null);
+        return new FakeStack<>(apb, 1, null, true);
     }
 
     @Inject(method = "renderInputItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;renderItem(Lnet/minecraft/world/item/ItemStack;II)V"), cancellable = true)
     private void renderInputItem(GuiGraphics graphics, int slot, BigItemStack itemStack, int mouseX, int mouseY, CallbackInfo ci, @Local(name = "inputX") int inputX, @Local(name = "inputY") int inputY) {
         if(itemStack instanceof FakeStack<?> holder) {
-            holder.renderAsInput(graphics, mouseX, mouseY, inputX, inputY, font);
+            holder.renderAsInput(graphics, mouseX, mouseY, inputX, inputY);
             ci.cancel();
         }
     }

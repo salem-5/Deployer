@@ -10,7 +10,6 @@ import net.neoforged.neoforge.event.level.LevelEvent;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
 /**
@@ -20,11 +19,11 @@ public class PanelConnection<T> {
     //region Attributes
     private final Map<Block, ConnectionExtra<T>> extraConnections = new HashMap<>();
     //TODO: Implement partial ticks and panel data
-    private final Function<T, ConnectionLine> colorProvider;
+    private final ToIntFunction<T> colorProvider;
     //endregion
 
 
-    public PanelConnection(Function<T, ConnectionLine> colorProvider) {
+    public PanelConnection(ToIntFunction<T> colorProvider) {
         this.colorProvider = colorProvider;
     }
 
@@ -78,8 +77,8 @@ public class PanelConnection<T> {
         return extraConnections.get(block);
     }
 
-    public ConnectionLine getColor(T value) {
-        return colorProvider.apply(value);
+    public int getColor(T value) {
+        return colorProvider.applyAsInt(value);
     }
 
     /**

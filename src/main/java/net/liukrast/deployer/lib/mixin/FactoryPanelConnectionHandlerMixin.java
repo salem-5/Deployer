@@ -1,5 +1,6 @@
 package net.liukrast.deployer.lib.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.content.logistics.factoryBoard.*;
@@ -41,23 +42,39 @@ public class FactoryPanelConnectionHandlerMixin {
     private static void checkForIssues(FactoryPanelBehaviour from, FactoryPanelBehaviour to, CallbackInfoReturnable<String> cir) {
         String error = cir.getReturnValue();
 
+
+    }
+
+    @ModifyReturnValue(
+            method = "checkForIssues(Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBehaviour;Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBehaviour;)Ljava/lang/String;",
+            at = @At("RETURN")
+    )
+    private static String checkForIssues(
+            String error,
+            @Local(argsOnly = true, ordinal = 0) FactoryPanelBehaviour from,
+            @Local(argsOnly = true, ordinal = 1) FactoryPanelBehaviour to
+    ) {
         // Errors that shouldn't be ignored
-        if("factory_panel.connection_aborted".equals(error)) return;
-        if("factory_panel.already_connected".equals(error)) return;
-        if("factory_panel.cannot_add_more_inputs".equals(error)) return;
-        if("factory_panel.same_orientation".equals(error)) return;
-        if("factory_panel.same_surface".equals(error)) return;
-        if("factory_panel.too_far_apart".equals(error)) return;
+        if("factory_panel.connection_aborted".equals(error)) return error;
+        if("factory_panel.already_connected".equals(error)) return error;
+        if("factory_panel.cannot_add_more_inputs".equals(error)) return error;
+        if("factory_panel.same_orientation".equals(error)) return error;
+        if("factory_panel.same_surface".equals(error)) return error;
+        if("factory_panel.too_far_apart".equals(error)) return error;
 
         // If the pointing panel is a factory gauge, we can't ignore issues
         if("factory_panel.no_item".equals(error)) {
             if(
                     (from instanceof AbstractPanelBehaviour || !from.getFilter().isEmpty()) &&
                             (to instanceof AbstractPanelBehaviour || !to.getFilter().isEmpty())
-            ) cir.setReturnValue(null);
+            ) return null;
         }
-        if(!(to instanceof AbstractPanelBehaviour toApb)) return;
-        cir.setReturnValue(toApb.canConnect(from));
+        if(from instanceof AbstractPanelBehaviour apb) {
+            var error1 = apb.canPoint(to);
+            if(error1 != null) return error1;
+        }
+        if(to instanceof AbstractPanelBehaviour apb) return apb.canBePointed(from);
+        return null;
     }
 
     @ModifyArg(method = "checkForIssues(Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelBehaviour;Lcom/simibubi/create/content/logistics/factoryBoard/FactoryPanelSupportBehaviour;)Ljava/lang/String;", at = @At(value = "INVOKE", target = "Ljava/util/Optional;orElse(Ljava/lang/Object;)Ljava/lang/Object;"))
@@ -71,7 +88,7 @@ public class FactoryPanelConnectionHandlerMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;displayClientMessage(Lnet/minecraft/network/chat/Component;Z)V", ordinal = 2)
     )
     private static Component panelClicked(Component original, @Local(ordinal = 0, argsOnly = true) FactoryPanelBehaviour from, @Local(name = "at") FactoryPanelBehaviour to) {
-        if(from instanceof AbstractPanelBehaviour || to instanceof AbstractPanelBehaviour) return Component.translatable("extra_gauges.panel.panels_connected", from.getDisplayName(), to.getDisplayName()).withStyle(ChatFormatting.GREEN);
+        if(from instanceof AbstractPanelBehaviour || to instanceof AbstractPanelBehaviour) return Component.translatable("deployer.panel.panels_connected").withStyle(ChatFormatting.GREEN);
         return original;
     }
 

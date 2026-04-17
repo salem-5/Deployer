@@ -4,12 +4,16 @@ import com.mojang.serialization.Codec;
 import com.simibubi.create.content.logistics.factoryBoard.*;
 import com.simibubi.create.content.schematics.requirement.ItemRequirement;
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform;
+import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBoard;
 import com.simibubi.create.foundation.utility.CreateLang;
 import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import net.createmod.catnip.codecs.CatnipCodecUtils;
 import net.createmod.catnip.codecs.CatnipCodecs;
 import net.createmod.catnip.gui.ScreenOpener;
+import net.createmod.catnip.platform.CatnipServices;
+import net.liukrast.deployer.lib.DeployerConfig;
 import net.liukrast.deployer.lib.logistics.board.connection.*;
+import net.liukrast.deployer.lib.logistics.board.screen.BasicPanelScreen;
 import net.liukrast.deployer.lib.mixin.accessors.FactoryPanelBehaviourAccessor;
 import net.liukrast.deployer.lib.mixin.accessors.FilteringBehaviourAccessor;
 import net.liukrast.deployer.lib.mixinExtensions.FPBExtension;
@@ -17,10 +21,12 @@ import net.liukrast.deployer.lib.registry.DeployerPanelConnections;
 import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -29,8 +35,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.util.TriPredicate;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -58,19 +66,13 @@ import java.util.stream.Stream;
  * </p>
  */
 public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour implements ProvidesConnection {
+    private int cycled = 0;
     // region Private attributes & static values
     private final PanelType<?> type;
     private final HashMap<String, InteractionData> interactions = new HashMap<>();
-    /**
-     * Common color used to warn the user that the connection is currently waiting for the next tick to update
-     * */
-    @Deprecated(forRemoval = true)
-    protected static final int WAITING = 0xffd541;
-    /**
-     * Common color used to warn the user that the connection doesn't do anything
-     * */
-    @Deprecated(forRemoval = true)
-    protected static final int DISABLED = 0x888898;
+
+    protected static final int WAITING = ConnectionLine.pack(0xffd541, false, true);
+    protected static final int DISABLED = ConnectionLine.pack(0x888898, false, false);
     //endregion
     //region Constructors
     /**
@@ -192,7 +194,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
                 if(pc == null || pc != connection) return PanelValue.empty();
                 return PanelValue.of(apsb.getConnectionValue(connection));
             } else if(connection == DeployerPanelConnections.REDSTONE.get()) //noinspection unchecked
-                return PanelValue.of((T)(Integer)(linkAt.shouldPanelBePowered() ? 15 : 0));
+                return PanelValue.of((T)(Boolean)(linkAt.shouldPanelBePowered()));
             else return PanelValue.empty();
         }
         if(((FPBExtension)source).deployer$getExtra().containsValue(position)) {
@@ -213,6 +215,8 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
         throw new IllegalStateException("Cannot get value on a panel not connected to the input one (Position: " + position.from.pos() + ")");
     }
 
+    public record ConnectionValue<T>(FactoryPanelConnection connection, T value) {}
+
     /**
      * Aggregates all values from all connected sources for a specific connection type.
      * <p>
@@ -227,22 +231,39 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
      */
     @Nullable
     public <T> List<T> getAllValues(PanelConnection<T> connection) {
-        List<T> out = new ArrayList<>();
-        boolean shouldAbort = Stream.of(targetedBy.values(), targetedByLinks.values(), ((FPBExtension) this).deployer$getExtra().values())
+        List<ConnectionValue<T>> withSource = getAllValuesWithSource(connection);
+        if (withSource == null) return null;
+        return withSource.stream()
+                .map(ConnectionValue::value)
+                .toList();
+    }
+
+    /**
+     * Aggregates all values from all connected sources for a specific connection type.
+     * <p>
+     * This version uses a unified stream to process standard panels, links, and extra
+     * block connections, maintaining the "Abort" logic for unloaded chunks.
+     * </p>
+     *
+     * @param connection the type of data connection to poll
+     * @param <T>        the type of the values
+     * @return a {@link List} of all values and their {@link FactoryPanelConnection}, or {@code null} if any source
+     * returned an "Abort" state.
+     */
+    @Nullable
+    public <T> List<ConnectionValue<T>> getAllValuesWithSource(PanelConnection<T> connection) {
+        List<ConnectionValue<T>> out = new ArrayList<>();
+        boolean shouldAbort = Stream.of(targetedBy.values(), targetedByLinks.values(), getTargetedByExtra().values())
                 .flatMap(Collection::stream)
                 .anyMatch(gauge -> {
                     PanelValue<T> result = getValue(gauge, connection, this);
                     if (result instanceof PanelValue.Abort) return true;
-                    if (result instanceof PanelValue.Present<T>(T value)) out.add(value);
+                    if (result instanceof PanelValue.Present<T>(T value))
+                        out.add(new ConnectionValue<>(gauge, value));
                     return false;
                 });
 
         return shouldAbort ? null : out;
-    }
-
-    @NotNull
-    public ConnectionLine overrideConnectionColor(ConnectionLine original, FactoryPanelConnection connection, float partialTicks) {
-        return original;
     }
     //endregion
     //region Util functions
@@ -290,13 +311,13 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
      * warning message in the player's hotbar (prefixed with {@code create.}).
      * </p>
      *
-     * @param other the panel attempting to connect
+     * @param from the panel attempting to connect
      * @return a translation key (e.g., "message.invalid_connection") if failed,
      * or {@code null} if the connection is allowed
      * @see #canBePointed(FactoryPanelBehaviour)
      * @see #canPoint(FactoryPanelBehaviour)
      */
-    public String canConnect(FactoryPanelBehaviour other) {
+    public String canConnect(FactoryPanelBehaviour from) {
         return null;
     }
 
@@ -306,6 +327,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
      * @param from the panel attempting to point to this instance
      * @return a translation key if blocked, or {@code null} if allowed
      */
+    @Nullable
     public String canBePointed(FactoryPanelBehaviour from) {
         return canConnect(from);
     }
@@ -316,6 +338,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
      * @param to the panel this instance is attempting to connect to
      * @return a translation key if blocked, or {@code null} if allowed
      */
+    @Nullable
     public String canPoint(FactoryPanelBehaviour to) {
         return canConnect(to);
     }
@@ -334,7 +357,32 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
             if(behaviour == null) continue;
             behaviour.checkForRedstoneInput();
         }
-        ((FactoryPanelBehaviourAccessor)this).deployer$invokeNotifyRedstoneOutputs();
+        for (FactoryPanelConnection connection : targetedByLinks.values()) {
+            if (!getWorld().isLoaded(connection.from.pos()))
+                return;
+            FactoryPanelSupportBehaviour linkAt = linkAt(getWorld(), connection);
+            if (linkAt == null)
+                return;
+            if(linkAt.isOutput()) continue;
+            linkAt.notifyLink();
+        }
+    }
+
+    @Override
+    public final void checkForRedstoneInput() {
+        if(cycled >= DeployerConfig.Server.FACTORY_PANEL_MAX_CYCLES_PER_TICK.getAsInt()) return;
+        cycled++;
+        notifiedFromInput();
+    }
+
+    @Override
+    public void tick() {
+        cycled = 0;
+        super.tick();
+    }
+
+    public void notifiedFromInput() {
+
     }
 
     /**
@@ -347,7 +395,7 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
      * Decides how the light bulb should be rendered.
      * */
     public BulbState getBulbState() {
-        return null;
+        return BulbState.DISABLED;
     }
 
     /**
@@ -446,6 +494,10 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
             ScreenOpener.open(new BasicPanelScreen<>(this));
     }
 
+    @Override
+    public ValueSettingsBoard createBoard(Player player, BlockHitResult hitResult) {
+        return null;
+    }
 
     /**
      * Creates the menu for this gauge. Since this is not necessary for a basic gauge, we return null
@@ -517,13 +569,15 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
         panelTag.put("Targeting", CatnipCodecUtils.encode(CatnipCodecs.set(FactoryPanelPosition.CODEC), targeting).orElseThrow());
         panelTag.put("TargetedBy", CatnipCodecUtils.encode(Codec.list(FactoryPanelConnection.CODEC), new ArrayList<>(targetedBy.values())).orElseThrow());
         panelTag.put("TargetedByLinks", CatnipCodecUtils.encode(Codec.list(FactoryPanelConnection.CODEC), new ArrayList<>(targetedByLinks.values())).orElseThrow());
-        FPBExtension extra = ((FPBExtension)this);
-        panelTag.put("TargetedByExtra", CatnipCodecUtils.encode(Codec.list(FactoryPanelConnection.CODEC), new ArrayList<>(extra.deployer$getExtra().values())).orElseThrow());
+        panelTag.put("TargetedByExtra", CatnipCodecUtils.encode(Codec.list(FactoryPanelConnection.CODEC), new ArrayList<>(getTargetedByExtra().values())).orElseThrow());
         easyWrite(panelTag, registries, clientPacket);
         nbt.put(CreateLang.asId(slot.name()), panelTag);
     }
 
-    @ApiStatus.Internal
+    public final Map<BlockPos, FactoryPanelConnection> getTargetedByExtra() {
+        return ((FPBExtension)this).deployer$getExtra();
+    }
+
     @Override
     public boolean canShortInteract(ItemStack toApply) {
         return false;
@@ -540,6 +594,70 @@ public abstract class AbstractPanelBehaviour extends FactoryPanelBehaviour imple
 
     @Override
     public void setNetwork(UUID network) {
+    }
+
+    public void onShortInteract(Player player, InteractionHand hand, Direction side, BlockHitResult hitResult, boolean client) {
+        if (client)
+            CatnipServices.PLATFORM.executeOnClientOnly(() -> () -> displayScreen(player));
+    }
+
+    @Override
+    public boolean isCountVisible() {
+        return true;
+    }
+
+    @Override
+    public final void onShortInteract(Player player, InteractionHand hand, Direction side, BlockHitResult hitResult) {
+        boolean isClientSide = player.level().isClientSide;
+        // Wrench cycles through arrow bending
+        if (targeting.size() + targetedByLinks.size() > 0 && player.getItemInHand(hand).is(Tags.Items.TOOLS_WRENCH)) {
+            int sharedMode = -1;
+            boolean notifySelf = false;
+
+            for (FactoryPanelPosition target : targeting) {
+                FactoryPanelBehaviour at = at(getWorld(), target);
+                if (at == null)
+                    continue;
+                FactoryPanelConnection connection = at.targetedBy.get(getPanelPosition());
+                if (connection == null)
+                    continue;
+                if (sharedMode == -1)
+                    sharedMode = (connection.arrowBendMode + 1) % 4;
+                connection.arrowBendMode = sharedMode;
+                if (!isClientSide)
+                    at.blockEntity.notifyUpdate();
+            }
+
+            for (FactoryPanelConnection connection : targetedByLinks.values()) {
+                if (sharedMode == -1)
+                    sharedMode = (connection.arrowBendMode + 1) % 4;
+                connection.arrowBendMode = sharedMode;
+                if (!isClientSide)
+                    notifySelf = true;
+            }
+
+            if (sharedMode == -1)
+                return;
+
+            char[] boxes = "□□□□".toCharArray();
+            boxes[sharedMode] = '■';
+            player.displayClientMessage(CreateLang.translate("factory_panel.cycled_arrow_path", new String(boxes))
+                    .component(), true);
+            if (notifySelf)
+                blockEntity.notifyUpdate();
+
+            return;
+        }
+
+        // Client might be in the process of connecting a panel
+        if (isClientSide)
+            if (FactoryPanelConnectionHandler.panelClicked(getWorld(), player, this))
+                return;
+        onShortInteract(player, hand, side, hitResult, isClientSide);
+    }
+
+    public void onConnectionAdded(FactoryPanelConnection connection) {
+
     }
 
     //endregion

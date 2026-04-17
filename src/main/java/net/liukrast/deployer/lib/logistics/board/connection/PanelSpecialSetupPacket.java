@@ -1,10 +1,12 @@
 package net.liukrast.deployer.lib.logistics.board.connection;
 
 import com.simibubi.create.content.logistics.factoryBoard.*;
+import com.simibubi.create.content.redstone.displayLink.DisplayLinkBlockEntity;
 import com.simibubi.create.foundation.networking.BlockEntityConfigurationPacket;
 import net.liukrast.deployer.lib.mixinExtensions.FPBExtension;
 import net.liukrast.deployer.lib.mixinExtensions.FPCExtension;
 import net.liukrast.deployer.lib.registry.DeployerPackets;
+import net.liukrast.deployer.lib.registry.DeployerPanelConnections;
 import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -70,7 +72,12 @@ public class PanelSpecialSetupPacket extends BlockEntityConfigurationPacket<Fact
                                         .withStyle(ChatFormatting.GREEN),
                                 true
                         );
-                }
+                } else
+                    player.displayClientMessage(
+                            Component.translatable("deployer.factory_panel.no_connection_available")
+                                    .withStyle(ChatFormatting.RED),
+                            true
+                    );
             } else {
                 behaviour.targetedBy.remove(from);
                 if(source != null) {
@@ -79,10 +86,60 @@ public class PanelSpecialSetupPacket extends BlockEntityConfigurationPacket<Fact
                 }
             }
         } else if(behaviour.targetedByLinks.containsKey(from.pos())) {
-            behaviour.targetedByLinks.remove(from.pos());
             FactoryPanelSupportBehaviour source = FactoryPanelBehaviour.linkAt(be.getLevel(), from);
-            if(source != null) {
-                source.disconnect(behaviour);
+            if(!disconnect) {
+                if(source == null) return;
+                if(source instanceof AbstractPanelSupportBehaviour apsb) {
+                    FactoryPanelConnection conn = behaviour.targetedByLinks.get(from.pos());
+                    var set = source.isOutput() ? ProvidesConnection.getPossibleConnections(apsb, behaviour) : ProvidesConnection.getPossibleConnections(behaviour, apsb);
+                    var pc = ProvidesConnection.getCurrentConnection(conn, () -> set.stream().findFirst().orElse(null));
+                    if(pc != null) {
+                        List<PanelConnection<?>> li = new ArrayList<>(set);
+                        int current = li.indexOf(pc);
+                        int nextIndex = (current + 1) % li.size();
+                        PanelConnection<?> pc1 = li.get(nextIndex);
+                        ((FPCExtension)conn).deployer$setLinkMode(pc1);
+                        var id = DeployerRegistries.PANEL_CONNECTION.getKey(pc1);
+                        if(id != null)
+                            player.displayClientMessage(
+                                    Component.translatable(
+                                                    "deployer.factory_panel.transferring_switch",
+                                                    Component.translatable(
+                                                            "panel_connection." + id.getNamespace() + "." + id.getPath()))
+                                            .withStyle(ChatFormatting.GREEN),
+                                    true
+                            );
+                    } else
+                        player.displayClientMessage(
+                                Component.translatable("deployer.factory_panel.no_connection_available")
+                                        .withStyle(ChatFormatting.RED),
+                                true
+                        );
+                } else {
+                    boolean available = (source.isOutput() ? ((ProvidesConnection)behaviour).getInputConnections() : ((ProvidesConnection)behaviour).getOutputConnections()).contains(DeployerPanelConnections.REDSTONE.get());
+                    if(available) {
+                        player.displayClientMessage(
+                                Component.translatable(
+                                                "deployer.factory_panel.transferring_switch",
+                                                source.blockEntity instanceof DisplayLinkBlockEntity ?
+                                                        Component.translatable("panel_connection.deployer.display") :
+                                                        Component.translatable("panel_connection.deployer.redstone"))
+                                        .withStyle(ChatFormatting.GREEN),
+                                true
+                        );
+                    } else {
+                        player.displayClientMessage(
+                                Component.translatable("deployer.factory_panel.no_connection_available")
+                                        .withStyle(ChatFormatting.RED),
+                                true
+                        );
+                    }
+                }
+            } else {
+                behaviour.targetedByLinks.remove(from.pos());
+                if (source != null) {
+                    source.disconnect(behaviour);
+                }
             }
         } else {
             var extra = ((FPBExtension)behaviour).deployer$getExtra();

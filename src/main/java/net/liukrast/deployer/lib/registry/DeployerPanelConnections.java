@@ -16,11 +16,10 @@ public class DeployerPanelConnections {
     private DeployerPanelConnections() {}
     private static final DeferredRegister<PanelConnection<?>> CONNECTIONS = DeferredRegister.create(DeployerRegistries.PANEL_CONNECTION, DeployerConstants.MOD_ID);
 
-    public static final DeferredHolder<PanelConnection<?>, PanelConnection<StockConnection>> STOCK_CONNECTION = CONNECTIONS.register("stock_connection", () -> new PanelConnection<>(ConnectionLine.staticColor(0x888898, false, true)));
-    //TODO: Boolean!
-    public static final DeferredHolder<PanelConnection<?>, PanelConnection<Integer>> REDSTONE = CONNECTIONS.register("redstone", () -> new PanelConnection<>(bl -> new ConnectionLine(bl > 0 ? 0xEF0000 : 0x580101)));
-    public static final DeferredHolder<PanelConnection<?>, PanelConnection<Integer>> INTEGER = CONNECTIONS.register("integer", () -> new PanelConnection<>(ConnectionLine.staticColor(0x4572e3, false, true)));
-    public static final DeferredHolder<PanelConnection<?>, PanelConnection<String>> STRING = CONNECTIONS.register("string", () -> new PanelConnection<>(ConnectionLine.staticColor(0xFFFFFF, true, false)));
+    public static final DeferredHolder<PanelConnection<?>, PanelConnection<StockConnection<?>>> STOCK_CONNECTION = CONNECTIONS.register("stock_connection", () -> new PanelConnection<>(ConnectionLine.createStatic(0x888898, false, true)));
+    public static final DeferredHolder<PanelConnection<?>, PanelConnection<Boolean>> REDSTONE = CONNECTIONS.register("redstone", () -> new PanelConnection<>(bl -> ConnectionLine.pack(bl ? 0xEF0000 : 0x580101)));
+    public static final DeferredHolder<PanelConnection<?>, PanelConnection<Float>> NUMBERS = CONNECTIONS.register("numbers", () -> new PanelConnection<>(ConnectionLine.createStatic(0x4572e3, false, true)));
+    public static final DeferredHolder<PanelConnection<?>, PanelConnection<String>> STRING = CONNECTIONS.register("string", () -> new PanelConnection<>(ConnectionLine.createStatic(0xFFFFFF, true, false)));
     @ApiStatus.Internal
     public static void register(IEventBus eventBus) {
         CONNECTIONS.register(eventBus);

@@ -783,7 +783,6 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
         AbstractInventorySummary<K, V> summary = ((STBEExtension) blockEntity).deployer$getLastClientsideStockSnapshotAsSummary(type);
         for (V value : itemsToOrder) {
             int countOf = summary.getCountOf(value);
-            //TODO: Check for max count
             forcedEntries.add(type.valueHandler().copy(value), -1 - Math.max(0, countOf - type.valueHandler().getCount(value)));
         }
         return type.valueHandler().createContained(itemsToOrder);

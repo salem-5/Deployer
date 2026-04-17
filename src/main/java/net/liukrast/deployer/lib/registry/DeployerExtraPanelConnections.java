@@ -17,8 +17,8 @@ public class DeployerExtraPanelConnections {
 
     public static void register() {
         Block[] levers = {Blocks.LEVER, AllBlocks.ANALOG_LEVER.get()};
-        DeployerPanelConnections.REDSTONE.get().addListener((level, state, pos, be) -> Optional.of(state.getSignal(level, pos, Direction.NORTH)), levers);
-        DeployerPanelConnections.INTEGER.get().addListener((level, state, pos, be) -> Optional.of(state.getSignal(level, pos, Direction.NORTH)), levers);
+        DeployerPanelConnections.REDSTONE.get().addListener((level, state, pos, be) -> Optional.of(state.getSignal(level, pos, Direction.NORTH) > 0), levers);
+        DeployerPanelConnections.NUMBERS.get().addListener((level, state, pos, be) -> Optional.of((float)state.getSignal(level, pos, Direction.NORTH)), levers);
         DeployerPanelConnections.STRING.get().addListener((level, state, pos, be) -> {
             if(!(be instanceof SignBlockEntity sign)) return Optional.empty();
             return Optional.of(String.join("", Arrays.stream(sign.getFrontText().getMessages(false)).map(Component::getString).toArray(String[]::new)));

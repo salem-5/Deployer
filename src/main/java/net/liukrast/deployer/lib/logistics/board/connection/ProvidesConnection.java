@@ -4,6 +4,7 @@ import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBehaviour;
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelConnection;
 import net.liukrast.deployer.lib.mixinExtensions.FPCExtension;
 import net.neoforged.neoforge.registries.DeferredHolder;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -93,6 +94,9 @@ public interface ProvidesConnection {
         return defaultValue.get();
     }
 
+    default int overrideConnectionColor(int original, FactoryPanelConnection connection, float partialTicks) {
+        return original;
+    }
 
 
 }

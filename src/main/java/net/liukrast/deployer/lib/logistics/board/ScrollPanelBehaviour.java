@@ -2,15 +2,17 @@ package net.liukrast.deployer.lib.logistics.board;
 
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlock;
 import com.simibubi.create.content.logistics.factoryBoard.FactoryPanelBlockEntity;
+import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBoard;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.BlockHitResult;
 
+import java.awt.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * A base panel behavior representing a scrollable numeric value.
@@ -18,14 +20,11 @@ import java.util.function.Supplier;
  * displayed value, and handle callbacks when the value changes.
  */
 public abstract class ScrollPanelBehaviour extends AbstractPanelBehaviour {
+    protected int min,max = 1;
     public int value;
     public Component label;
-    protected int min,max = 1;
     Consumer<Integer> callback;
-    Consumer<Integer> clientCallback;
     public Function<Integer, String> formatter;
-    @SuppressWarnings({"FieldCanBeLocal", "unused", "FieldMayBeFinal"})
-    private Supplier<Boolean> isActive;
 
     /**
      * Constructs a new scroll panel behavior.
@@ -40,11 +39,8 @@ public abstract class ScrollPanelBehaviour extends AbstractPanelBehaviour {
         this.setLabel(label);
         callback = i -> {
         };
-        clientCallback = i -> {
-        };
         formatter = i -> Integer.toString(i);
         value = 0;
-        isActive = () -> true;
     }
 
     /**
@@ -89,7 +85,7 @@ public abstract class ScrollPanelBehaviour extends AbstractPanelBehaviour {
      */
     @Override
     public void easyRead(CompoundTag nbt, HolderLookup.Provider registries, boolean clientPacket) {
-        value = nbt.contains("ScrollValue") ? nbt.getInt("ScrollValue") : 0;
+        value = nbt.getInt("ScrollValue");
         super.easyRead(nbt, registries, clientPacket);
     }
 
@@ -163,4 +159,6 @@ public abstract class ScrollPanelBehaviour extends AbstractPanelBehaviour {
         return new ValueSettings(0, value);
     }
 
+    @Override
+    public abstract ValueSettingsBoard createBoard(Player player, BlockHitResult hitResult);
 }

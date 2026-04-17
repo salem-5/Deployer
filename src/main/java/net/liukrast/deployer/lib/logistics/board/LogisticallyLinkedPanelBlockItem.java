@@ -4,7 +4,9 @@ import com.simibubi.create.foundation.utility.CreateLang;
 import net.liukrast.deployer.lib.logistics.LogisticallyLinked;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -61,6 +63,11 @@ public class LogisticallyLinkedPanelBlockItem extends PanelBlockItem implements 
         return LogisticallyLinked.useOn(pContext, super::useOn);
     }
 
+    @Override
+    public @NotNull InteractionResultHolder<ItemStack> use(@NotNull Level level, @NotNull Player player, @NotNull InteractionHand usedHand) {
+        return LogisticallyLinked.use(level, player, usedHand, super::use);
+    }
+
     /**
      * Updates the block entity tag when placing the panel.
      * Ensures that a copy of the item stack is used for block entity initialization.
@@ -95,7 +102,7 @@ public class LogisticallyLinkedPanelBlockItem extends PanelBlockItem implements 
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+    public void appendHoverText(@NotNull ItemStack stack, @NotNull TooltipContext context, @NotNull List<Component> tooltipComponents, @NotNull TooltipFlag tooltipFlag) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
         LogisticallyLinked.appendHoverText(stack, tooltipComponents);
     }

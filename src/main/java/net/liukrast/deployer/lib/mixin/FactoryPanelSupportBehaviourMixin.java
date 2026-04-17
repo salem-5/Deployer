@@ -18,7 +18,7 @@ public class FactoryPanelSupportBehaviourMixin {
     @Expression("behaviour.satisfied")
     @ModifyExpressionValue(method = "shouldBePoweredTristate", at = @At("MIXINEXTRAS:EXPRESSION"))
     private boolean shouldBePoweredTristate(boolean original, @Local(name = "behaviour") FactoryPanelBehaviour behaviour) {
-        if(behaviour instanceof AbstractPanelBehaviour apb) return apb.getConnectionValue(DeployerPanelConnections.REDSTONE.get()).orElse(0) > 0;
+        if(behaviour instanceof AbstractPanelBehaviour apb) return apb.getConnectionValue(DeployerPanelConnections.REDSTONE.get()).orElse(false);
         return original;
     }
 

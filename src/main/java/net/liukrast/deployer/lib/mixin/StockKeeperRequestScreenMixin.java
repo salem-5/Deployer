@@ -334,7 +334,21 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
         map.set(temp);
     }
 
-    @ModifyExpressionValue(method = "sendIt", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z"))
+    @ModifyExpressionValue(
+            method = "sendIt",
+            at = {
+                    @At(
+                            value = "INVOKE",
+                            target = "Ljava/util/List;isEmpty()Z",
+                            ordinal = 0
+                    ),
+                    @At(
+                            value = "INVOKE",
+                            target = "Ljava/util/List;isEmpty()Z",
+                            ordinal = 1
+                    )
+            }
+    )
     private boolean sendIt(boolean original, @Share("extra_orders") LocalRef<Map<StockInventoryType<?,?,?>, GenericOrderContained<?>>> map) {
         return original && map.get().isEmpty();
     }

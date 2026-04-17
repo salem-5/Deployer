@@ -13,6 +13,8 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -31,6 +33,7 @@ public class PackageEntityMixin implements DeployerGoggleInformation {
     @Shadow
     public ItemStack box;
 
+    @OnlyIn(Dist.CLIENT)
     @Override
     public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
         if(!DeployerConfig.Client.PACKAGE_GOGGLE_INFO.getAsBoolean()) return DeployerGoggleInformation.super.addToGoggleTooltip(tooltip, isPlayerSneaking);

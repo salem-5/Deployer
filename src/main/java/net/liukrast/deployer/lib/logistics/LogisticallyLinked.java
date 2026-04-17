@@ -6,12 +6,18 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.utility.CreateLang;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import org.apache.commons.lang3.function.TriFunction;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -65,6 +71,21 @@ public interface LogisticallyLinked {
         player.displayClientMessage(tuned ? CreateLang.translateDirect("logistically_linked.connected")
                 : CreateLang.translateDirect("logistically_linked.new_network_started"), true);
         return useOn;
+    }
+
+    static InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand, TriFunction<Level, Player, InteractionHand, InteractionResultHolder<ItemStack>> super$use) {
+        ItemStack stack = player.getItemInHand(usedHand);
+        if (LogisticallyLinkedBlockItem.isTuned(stack)) {
+            if (level.isClientSide) {
+                level.playSound(player, player.blockPosition(), SoundEvents.ITEM_FRAME_REMOVE_ITEM, SoundSource.BLOCKS, 0.75f, 1.0f);
+            } else {
+                player.displayClientMessage(CreateLang.translateDirect("logistically_linked.cleared"), true);
+                stack.remove(DataComponents.BLOCK_ENTITY_DATA);
+            }
+            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+        } else {
+            return super$use.apply(level, player, usedHand);
+        }
     }
 
 }
