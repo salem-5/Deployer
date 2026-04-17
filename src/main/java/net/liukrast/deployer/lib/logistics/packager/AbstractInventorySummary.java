@@ -5,7 +5,6 @@ import net.createmod.catnip.platform.CatnipServices;
 import net.liukrast.deployer.lib.logistics.stockTicker.LogisticalStockGenericResponsePacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
-import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.mutable.MutableInt;
 
 import java.util.*;
@@ -143,7 +142,7 @@ public abstract class AbstractInventorySummary<K, V> {
             else totalCount+=count;
         }
 
-        List<V> stacks = items.computeIfAbsent(keyFrom(stack),$ -> Lists.newArrayList());
+        List<V> stacks = items.computeIfAbsent(keyFrom(stack),$ -> new ArrayList<>());
         for(V existing : stacks) {
             if(isSameKeySameComponents(existing, stack)) {
                 int existingCount = getCount(existing);
