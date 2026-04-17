@@ -1,1 +1,2 @@
-First release!
+- Fixed server-side crash
+- Fixed old gauges not connecting correctly
