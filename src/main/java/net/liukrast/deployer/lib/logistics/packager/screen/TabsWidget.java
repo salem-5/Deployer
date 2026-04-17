@@ -1,12 +1,10 @@
 package net.liukrast.deployer.lib.logistics.packager.screen;
 
-import com.simibubi.create.content.logistics.box.PackageStyles;
 import net.createmod.catnip.gui.widget.AbstractSimiWidget;
 import net.liukrast.deployer.lib.DeployerConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -65,7 +63,7 @@ public abstract class TabsWidget<T extends TabData> extends AbstractSimiWidget {
                 widgets.get(i).render(graphics, mouseX, mouseY, partialTicks);
             }
         }
-        if(maxTabs * (sectionIndex+1) <= widgets.size()+1) {
+        if(maxTabs * (sectionIndex+1) <= widgets.size()) {
             boolean hover2 = isInArea(getX() + 2, getY() + height - 15, 14, 12, mouseX, mouseY);
             graphics.blit(TEXTURE, getX() + 2, getY() + height - 16, hover2 ? 48 : 32, 16, 16, 16);
         }

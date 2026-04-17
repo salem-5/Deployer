@@ -5,7 +5,7 @@ on:
 
 jobs:
   call-shared-workflow:
-    uses: LIUKRAST/LIUKRAST/util/publish.yml@main
+    uses: LIUKRAST/LIUKRAST/.github/workflows/publish.yml@main
     permissions:
       contents: write
     secrets:
@@ -14,3 +14,4 @@ jobs:
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
       SSH_PASS: ${{ secrets.SSH_PASS }}
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}

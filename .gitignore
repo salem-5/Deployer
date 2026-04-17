@@ -1,7 +1,7 @@
-.gradle
-.github
 .idea
+.gradle
 build
 run
+runs
 libs
 repo
