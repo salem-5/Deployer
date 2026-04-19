@@ -1,6 +1,5 @@
 package net.liukrast.deployer.lib.mixin;
 
-import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -25,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.List;
 
-@Mixin(PackagerBlockEntity.class)
+@Mixin(value = PackagerBlockEntity.class)
 public abstract class PackagerBlockEntityMixin extends SmartBlockEntity {
     @Shadow
     public ItemStack heldBox;
@@ -48,12 +47,12 @@ public abstract class PackagerBlockEntityMixin extends SmartBlockEntity {
     }
 
     @WrapOperation(method = {"lazyTick","activate"}, at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/packager/PackagerBlockEntity;attemptToSend(Ljava/util/List;)V"))
-    private void lazyTick(PackagerBlockEntity instance, List<PackagingRequest> extracted, Operation<Void> original) {
+    private void lazyTick(PackagerBlockEntity instance, List<PackagingRequest> queuedRequests, Operation<Void> original) {
         if(instance instanceof AbstractPackagerBlockEntity<?,?,?> pack) {
             pack.attemptToSendSpecial(null);
             return;
         }
-        original.call(instance, extracted);
+        original.call(instance, queuedRequests);
     }
 
     @Inject(method = "unwrapBox", at = @At("HEAD"), cancellable = true)
@@ -69,7 +68,13 @@ public abstract class PackagerBlockEntityMixin extends SmartBlockEntity {
         cir.cancel();
     }
 
-    @Inject(method = "attemptToSend", at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/logistics/box/PackageItem;setOrder(Lnet/minecraft/world/item/ItemStack;IIZIZLcom/simibubi/create/content/logistics/stockTicker/PackageOrderWithCrafts;)V"))
+    @Inject(
+            method = "attemptToSend",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lcom/simibubi/create/content/logistics/box/PackageItem;setOrder(Lnet/minecraft/world/item/ItemStack;IIZIZLcom/simibubi/create/content/logistics/stockTicker/PackageOrderWithCrafts;)V"
+            )
+    )
     private void attemptToSend(List<PackagingRequest> queuedRequests, CallbackInfo ci, @Local(name = "createdBox") ItemStack createdBox, @Local(name = "nextRequest") PackagingRequest nextRequest) {
         //noinspection DataFlowIssue
         if(!PRExtension.class.cast(nextRequest).deployer$isFlagged()) return;

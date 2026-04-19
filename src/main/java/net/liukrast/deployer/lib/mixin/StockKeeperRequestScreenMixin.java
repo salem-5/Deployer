@@ -23,12 +23,9 @@ import net.createmod.catnip.platform.services.NetworkHelper;
 import net.liukrast.deployer.lib.DeployerConstants;
 import net.liukrast.deployer.lib.helper.ClientRegisterHelpers;
 import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
-import net.liukrast.deployer.lib.logistics.packager.screen.KeeperTabScreen;
-import net.liukrast.deployer.lib.logistics.packager.screen.KeeperTabWidget;
-import net.liukrast.deployer.lib.logistics.packager.screen.ProvidesOrder;
+import net.liukrast.deployer.lib.logistics.packager.screen.*;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderRequestPacket;
-import net.liukrast.deployer.lib.logistics.packager.screen.TabsWidget;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -79,6 +76,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
             Component.translatable("stock_inventory_type.unfinished_order_line_1").withStyle(ChatFormatting.GRAY),
             Component.translatable("stock_inventory_type.unfinished_order_line_2").withStyle(ChatFormatting.GRAY)
     );
+    @Unique private KeeperSourceContext deployer$context = null;
 
     private StockKeeperRequestScreenMixin(StockKeeperRequestMenu container, Inventory inv, Component title) {
         super(container, inv, title);
@@ -86,8 +84,9 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
 
     @Inject(method = "<init>", at = @At(value = "INVOKE", target = "Ljava/util/HashSet;<init>(Ljava/util/Collection;)V", ordinal = 0))
     private void init(StockKeeperRequestMenu container, Inventory inv, Component title, CallbackInfo ci) {
+        if(deployer$context == null) deployer$context = KeeperSourceContext.of(blockEntity);
         deployer$tabs = ClientRegisterHelpers.getKeeperTabs()
-                .map(func -> func.apply(blockEntity, menu))
+                .map(func -> func.apply(deployer$context, menu))
                 .toList();
     }
 
@@ -114,13 +113,13 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
             public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
                 boolean warn = this.getSelected() != null && !itemsToOrder.isEmpty();
                 graphics.blit(deployer$TEXTURE, getX() - (warn ? 13 : 0), getY() + 16, warn ? 0 : 13, this.getSelected() == null ? tabHeight : 0, tabWidth + (warn ? 13 : 0), tabHeight);
-                if(warn && isInArea(getX()-11, getY() + 5+16, 10, 10, mouseX, mouseY)) {
+                if(warn && isInArea(getX()-11, getY() + 5+16, mouseX, mouseY)) {
                     graphics.renderTooltip(Minecraft.getInstance().font, deployer$UNFINISHED_ORDER, Optional.empty(), mouseX, mouseY);
                 }
             }
 
-            private boolean isInArea(int x, int y, int w, int h, int px, int py) {
-                return px > x && px <= x+w && py > y && py <= y+h;
+            private boolean isInArea(int x, int y, int px, int py) {
+                return px > x && px <= x+ 10 && py > y && py <= y+ 10;
             }
 
             @Override
@@ -229,7 +228,7 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     }
     /* GET HOVERED INGREDIENT */
     /**
-     * Completely ignored if you're not in the items TAB.
+     * Completely ignored if you're not in the item TAB.
      * This is used for JEI compat so might need a future implementation for fluid stacks
      *
      */
@@ -255,10 +254,10 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     }
     /* MOUSE CLICKED */
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
-    private void mouseClicked(double mouseX, double mouseY, int pButton, CallbackInfoReturnable<Boolean> cir) {
+    private void mouseClicked(double pMouseX, double pMouseY, int pButton, CallbackInfoReturnable<Boolean> cir) {
         if (deployer$tabsWidget == null || deployer$tabsWidget.getSelected() == null) return;
-        if(deployer$skipArea(mouseX, mouseY)) return;
-        cir.setReturnValue(deployer$tabsWidget.getSelected().mouseClicked(mouseX - getGuiLeft() - 18, mouseY - getGuiTop() - 16, pButton));
+        if(deployer$skipArea(pMouseX, pMouseY)) return;
+        cir.setReturnValue(deployer$tabsWidget.getSelected().mouseClicked(pMouseX - getGuiLeft() - 18, pMouseY - getGuiTop() - 16, pButton));
         cir.cancel();
     }
 
@@ -311,10 +310,10 @@ public abstract class StockKeeperRequestScreenMixin extends AbstractSimiContaine
     }
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
-    private void keyPressed$1(int key, int scan, int mod, CallbackInfoReturnable<Boolean> cir) {
+    private void keyPressed$1(int pKeyCode, int pScanCode, int pModifiers, CallbackInfoReturnable<Boolean> cir) {
         if (deployer$tabsWidget == null || deployer$tabsWidget.getSelected() == null) return;
         assert minecraft != null;
-        if (!minecraft.options.keyChat.matches(key, scan)) return;
+        if (!minecraft.options.keyChat.matches(pKeyCode, pScanCode)) return;
         deployer$tabsWidget.getSelected().switchFocused();
         cir.setReturnValue(true);
         cir.cancel();

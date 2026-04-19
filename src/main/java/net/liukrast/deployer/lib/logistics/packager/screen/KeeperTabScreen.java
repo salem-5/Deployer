@@ -1,8 +1,6 @@
 package net.liukrast.deployer.lib.logistics.packager.screen;
 
 import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestMenu;
-import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
-import net.liukrast.deployer.lib.mixin.accessors.StockTickerBlockEntityAccessor;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -14,17 +12,16 @@ import java.util.List;
 
 public class KeeperTabScreen extends Screen implements TabData {
     private final ItemStack icon;
-    protected final StockTickerBlockEntity blockEntity;
-    protected final StockTickerBlockEntityAccessor beAccess;
+    protected final KeeperSourceContext context;
     protected final StockKeeperRequestMenu menu;
 
     private int guiLeft,guiTop;
 
-    public KeeperTabScreen(StockTickerBlockEntity blockEntity, StockKeeperRequestMenu menu, Component title, Item icon) {
+    public KeeperTabScreen(KeeperSourceContext context, StockKeeperRequestMenu menu, Component title, Item icon) {
         super(title);
         this.icon = icon.getDefaultInstance();
-        this.blockEntity = blockEntity;
-        beAccess = (StockTickerBlockEntityAccessor) blockEntity;
+        this.context = context;
+
         this.menu = menu;
     }
 

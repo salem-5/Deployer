@@ -7,7 +7,6 @@ import com.simibubi.create.compat.Mods;
 import com.simibubi.create.compat.jei.CreateJEI;
 import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestMenu;
 import com.simibubi.create.content.logistics.stockTicker.StockKeeperRequestScreen;
-import com.simibubi.create.content.logistics.stockTicker.StockTickerBlockEntity;
 import com.simibubi.create.content.trains.station.NoShadowFontWrapper;
 import com.simibubi.create.foundation.gui.AllGuiTextures;
 import com.simibubi.create.foundation.utility.CreateLang;
@@ -19,7 +18,6 @@ import net.liukrast.deployer.lib.logistics.packager.AbstractInventorySummary;
 import net.liukrast.deployer.lib.logistics.packager.StockInventoryType;
 import net.liukrast.deployer.lib.logistics.stockTicker.GenericOrderContained;
 import net.liukrast.deployer.lib.mixin.accessors.StockKeeperRequestScreenAccessor;
-import net.liukrast.deployer.lib.mixinExtensions.STBEExtension;
 import net.liukrast.deployer.lib.registry.DeployerRegistries;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -83,17 +81,17 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
     private final Set<Integer> hiddenCategories;
     protected AbstractInventorySummary<K,V> forcedEntries;
 
-    public StockTabScreen(StockTickerBlockEntity blockEntity, StockKeeperRequestMenu menu, Component title, Item icon, StockInventoryType<K, V,?> type) {
-        super(blockEntity, menu, title, icon);
+    public StockTabScreen(KeeperSourceContext context, StockKeeperRequestMenu menu, Component title, Item icon, StockInventoryType<K, V,?> type) {
+        super(context, menu, title, icon);
         this.type = type;
         hiddenCategories =
-                new HashSet<>(beAccess.getHiddenCategoriesByPlayer().getOrDefault(menu.player.getUUID(), List.of()));
+                new HashSet<>(context.getHiddenCategoriesByPlayer().getOrDefault(menu.player.getUUID(), List.of()));
         forcedEntries = type.networkHandler().createSummary();
     }
 
-    public StockTabScreen(StockTickerBlockEntity blockEntity, StockKeeperRequestMenu menu, Item icon, StockInventoryType<K,V,?> type) {
+    public StockTabScreen(KeeperSourceContext context, StockKeeperRequestMenu menu, Item icon, StockInventoryType<K,V,?> type) {
         this(
-                blockEntity, menu,
+                context, menu,
                 Component.translatable(
                         "stock_inventory_type."
                                 + Objects.requireNonNull(DeployerRegistries.STOCK_INVENTORY.getKey(type)).getNamespace()
@@ -147,8 +145,8 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
 
         categories = new ArrayList<>();
 
-        for (int i = 0; i < beAccess.getCategories().size(); i++) {
-            ItemStack stack = beAccess.getCategories().get(i);
+        for (int i = 0; i < context.getCategories().size(); i++) {
+            ItemStack stack = context.getCategories().get(i);
             StockKeeperRequestScreen.CategoryEntry entry = new StockKeeperRequestScreen.CategoryEntry(i, stack.isEmpty() ? ""
                     : stack.getHoverName()
                     .getString(),
@@ -228,7 +226,7 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
     @Override
     public void containerTick() {
         if(!forcedEntries.isEmpty()) {
-            AbstractInventorySummary<K,V> summary = beAccess.deployer$getLastClientsideStockSnapshotAsSummary(type);
+            AbstractInventorySummary<K,V> summary = context.getLastClientsideSnapshotAsSummary(type);
             for(V stack : forcedEntries.getStacks()) {
                 int limitedAmount = -type.valueHandler().getCount(stack)-1;
                 int actualAmount = summary.getCountOf(stack);
@@ -246,7 +244,7 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
             emptyTicks = 0;
         //TODO: Check if successTicks if needed
 
-        List<List<V>> clientStockSnapshot = beAccess.deployer$getClientStockSnapshot(type);
+        List<List<V>> clientStockSnapshot = context.getClientStockSnapshot(type);
         if(clientStockSnapshot != currentItemSource) {
             currentItemSource = clientStockSnapshot;
             refreshSearchResults(false);
@@ -412,7 +410,7 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
 
     private void revalidateOrders() {
         Set<V> invalid = new HashSet<>(itemsToOrder);
-        AbstractInventorySummary<K,V> summary = ((STBEExtension)blockEntity).deployer$getLastClientsideStockSnapshotAsSummary(type);
+        AbstractInventorySummary<K,V> summary = context.getLastClientsideSnapshotAsSummary(type);
         if(currentItemSource == null || summary == null) {
             itemsToOrder.removeAll(invalid);
             return;
@@ -474,7 +472,7 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
         if (currentItemSource == null)
             return CreateLang.translate("gui.stock_keeper.checking_stocks")
                     .component();
-        if (beAccess.getActiveLinks() == 0)
+        if (context.getActiveLinks() == 0)
             return CreateLang.translate("gui.stock_keeper.no_packagers_linked")
                     .component();
         if (currentItemSource.isEmpty())
@@ -530,7 +528,7 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
                         .isEmpty())
                     continue;
                 int indexOf = entry.getTargetBECategory();
-                if (indexOf >= beAccess.getCategories().size())
+                if (indexOf >= context.getCategories().size())
                     continue;
 
                 if (!entry.getHidden()) {
@@ -658,7 +656,7 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
             return true;
         }
 
-        int stock = beAccess.deployer$getLastClientsideStockSnapshotAsSummary(type).getCountOf(entry);
+        int stock = context.getLastClientsideSnapshotAsSummary(type).getCountOf(entry);
         int add = Math.min(transfer, stock - current);
         int newCount = current + Math.max(add, 0);
 
@@ -780,7 +778,7 @@ public abstract class StockTabScreen<K,V> extends KeeperTabScreen implements Pro
         revalidateOrders();
         if (itemsToOrder.isEmpty()) return null;
         forcedEntries = type.networkHandler().createSummary();
-        AbstractInventorySummary<K, V> summary = ((STBEExtension) blockEntity).deployer$getLastClientsideStockSnapshotAsSummary(type);
+        AbstractInventorySummary<K, V> summary = context.getLastClientsideSnapshotAsSummary(type);
         for (V value : itemsToOrder) {
             int countOf = summary.getCountOf(value);
             forcedEntries.add(type.valueHandler().copy(value), -1 - Math.max(0, countOf - type.valueHandler().getCount(value)));
