@@ -1,2 +1,2 @@
-- Introduced missing Abstract panel support behaviour code
-- Package entity goggle overlay has been moved to repackaged for consistency
+- Now using compat manager 1.0.7
+- Fixed re-packager issues and improved logic
