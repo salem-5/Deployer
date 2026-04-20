@@ -12,6 +12,8 @@ on:
 jobs:
   call-shared-workflow:
     uses: LIUKRAST/LIUKRAST/.github/workflows/publish.yml@main
+    with:
+      major_release: ${{ inputs.major_release }}
     permissions:
       contents: write
     secrets:
