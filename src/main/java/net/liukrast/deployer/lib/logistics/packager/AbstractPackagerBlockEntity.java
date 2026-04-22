@@ -468,8 +468,9 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
      * @param box the box to unwrap
      * @param simulate Whether you actually want to perform the action or you only want to check if the action is possible
      * */
+
     @Override
-    public boolean unwrapBox(ItemStack box, boolean simulate) {
+    public final boolean unwrapBox(ItemStack box, boolean simulate) {
         /* We avoid unpacking boxes that are not for this packager.
         A fluid packager cannot pack/unpack normal packages unless it's composite */
         if(!(box.getItem() instanceof GenericPackageItem generic)) {
@@ -487,10 +488,14 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
             notifyUpdate();
             return false;
         }
+        return safeUnwrapBox(box, simulate);
+    }
+
+    public boolean safeUnwrapBox(ItemStack box, boolean simulate) {
         if (animationTicks > 0)
             return false;
-
         assert level != null;
+        var type = getStockType();
 
         var ph = type.packageHandler();
 
