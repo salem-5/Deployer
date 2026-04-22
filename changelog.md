@@ -1,1 +1,4 @@
-- Fixed repackager not respecting extra index
+- Unwrapping method for special packager has been replaced with a safe version so that depending mods don't risk to break abstract packagers
+- Now requires create 6.10
+- Marked incompatibility with FL
+- Added new ponder helpers and utilities

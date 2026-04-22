@@ -39,13 +39,16 @@ public abstract class FlowSource$FluidHandlerMixin extends FlowSource {
             BlockPos pos = ((FlowSourceAccessor)this).getLocation().getConnectedPos();
             if(level instanceof ServerLevel serverLevel) {
                 if(DeployerConfig.Server.BLOCK_CAPABILITY_FIX.getAsBoolean() || level.getBlockState(pos).is(DeployerTags.Blocks.OVERRIDE_BLOCK_CAPABILITY_FIX))
-                    fluidHandlerCache = ICapabilityProvider.of(BlockCapabilityCache.create(
+                    fluidHandlerCache = ICapabilityProvider.of((invalidate) -> BlockCapabilityCache.create(
                             Capabilities.FluidHandler.BLOCK,
                             serverLevel,
                             pos,
                             ((FlowSourceAccessor)this).getLocation().getOppositeFace(),
                             () -> !networkBE.isRemoved(),
-                            () -> fluidHandlerCache = FlowSourceAccessor.getEMPTY()
+                            () -> {
+                                fluidHandlerCache = FlowSourceAccessor.getEMPTY();
+                                invalidate.run();
+                            }
                     ));
             }
         }

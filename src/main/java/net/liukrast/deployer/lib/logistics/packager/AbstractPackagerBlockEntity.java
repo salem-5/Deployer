@@ -471,6 +471,12 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
 
     @Override
     public final boolean unwrapBox(ItemStack box, boolean simulate) {
+        if(!isValidPackage(box))
+            return false;
+        return safeUnwrapBox(box, simulate);
+    }
+
+    public boolean isValidPackage(ItemStack box) {
         /* We avoid unpacking boxes that are not for this packager.
         A fluid packager cannot pack/unpack normal packages unless it's composite */
         if(!(box.getItem() instanceof GenericPackageItem generic)) {
@@ -488,7 +494,7 @@ public abstract class AbstractPackagerBlockEntity<K,V,H> extends PackagerBlockEn
             notifyUpdate();
             return false;
         }
-        return safeUnwrapBox(box, simulate);
+        return true;
     }
 
     public boolean safeUnwrapBox(ItemStack box, boolean simulate) {
