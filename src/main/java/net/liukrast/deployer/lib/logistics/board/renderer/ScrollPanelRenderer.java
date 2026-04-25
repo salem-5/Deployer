@@ -42,12 +42,13 @@ public class ScrollPanelRenderer {
         ItemStack mainHandItem = mc.player.getItemInHand(InteractionHand.MAIN_HAND);
         boolean clipboard = behaviour.bypassesInput(mainHandItem);
         assert target != null;
+
         boolean highlight = behaviour.testHit(target.getLocation()) && !clipboard;
+        if (!scroll.renderHoverOverlay()) highlight = false;
 
         addBox(target.getBlockPos(), target.getDirection(), scroll, highlight);
 
-
-        if (!highlight)
+        if (!highlight || !scroll.renderHoverOverlay())
             return;
 
         List<MutableComponent> tip = new ArrayList<>();
@@ -73,9 +74,14 @@ public class ScrollPanelRenderer {
                 .move(0, 0, -.125f);
         Component label = behaviour.label;
         ValueBox box;
-        if (behaviour instanceof ScrollOptionPanelBehaviour) {
+
+        if (!behaviour.renderIcon()) {
+            box = new ValueBox.TextValueBox(label, bb, pos, Component.empty());
+        } else if (behaviour instanceof ScrollOptionPanelBehaviour) {
             box = new ValueBox.IconValueBox(label, ((ScrollOptionPanelBehaviour<?>) behaviour).getIconForSelected(), bb, pos);
-        } else box = new ValueBox.TextValueBox(label, bb, pos, Component.literal(behaviour.formatValue()));
+        } else {
+            box = new ValueBox.TextValueBox(label, bb, pos, Component.literal(behaviour.formatValue()));
+        }
 
         box.passive(!highlight)
                 .wideOutline();
