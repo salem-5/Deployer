@@ -62,7 +62,7 @@ public class PonderSceneHelpers {
     }
 
     /**
-     *
+     * Automatically shows a text, idles the scene and attach a keyframe if requested
      * @param builder the scene builder
      * @param pos the position to show the text box
      * @param time the time to show the text box
